@@ -7,6 +7,18 @@
 
 namespace golos { namespace chain {
 
+    int32_t count_worker_approves(const auto& _db, auto& approve_idx, const comment_id_type& post, auto state) {
+        auto approvers = 0;
+        auto approve_itr = approve_idx.lower_bound(post);
+        for (; approve_itr != approve_idx.end() && approve_itr->post == post; ++approve_itr) {
+            auto witness = _db.find_witness(approve_itr->approver);
+            if (witness && witness->schedule == witness_object::top19 && approve_itr->state == state) {
+                approvers++;
+            }
+        }
+        return approvers;
+    }
+
     void worker_proposal_evaluator::do_apply(const worker_proposal_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_proposal_operation");
 
@@ -187,20 +199,8 @@ namespace golos { namespace chain {
             });
         }
 
-        auto count_approvers = [&](auto state) {
-            auto approvers = 0;
-            wtao_itr = wtao_idx.lower_bound(wto.post);
-            for (; wtao_itr != wtao_idx.end() && wtao_itr->post == wto.post; ++wtao_itr) {
-                auto witness = _db.find_witness(wtao_itr->approver);
-                if (witness && witness->schedule == witness_object::top19 && wtao_itr->state == state) {
-                    approvers++;
-                }
-            }
-            return approvers;
-        };
-
         if (o.state == worker_techspec_approve_state::disapprove) {
-            auto disapprovers = count_approvers(worker_techspec_approve_state::disapprove);
+            auto disapprovers = count_worker_approves(_db, wtao_idx, wto.post, worker_techspec_approve_state::disapprove);
 
             if (disapprovers < STEEMIT_SUPER_MAJOR_VOTED_WITNESSES) {
                 return;
@@ -212,13 +212,11 @@ namespace golos { namespace chain {
                 wto.state = worker_techspec_state::closed;
             });
         } else if (o.state == worker_techspec_approve_state::approve) {
-            auto approvers = count_approvers(worker_techspec_approve_state::approve);
+            auto approvers = count_worker_approves(_db, wtao_idx, wto.post, worker_techspec_approve_state::approve);
 
             if (approvers < STEEMIT_MAJOR_VOTED_WITNESSES) {
                 return;
             }
-
-            const auto& wpo = _db.get_worker_proposal(wto.worker_proposal_post);
 
             _db.modify(wpo, [&](worker_proposal_object& wpo) {
                 wpo.approved_techspec_post = wto_post.id;
@@ -341,22 +339,10 @@ namespace golos { namespace chain {
             });
         }
 
-        auto count_approvers = [&](auto state) {
-            auto approvers = 0;
-            wrao_itr = wrao_idx.lower_bound(wto.post);
-            for (; wrao_itr != wrao_idx.end() && wrao_itr->post == wto.post; ++wrao_itr) {
-                auto witness = _db.find_witness(wrao_itr->approver);
-                if (witness && witness->schedule == witness_object::top19 && wrao_itr->state == state) {
-                    approvers++;
-                }
-            }
-            return approvers;
-        };
-
         const auto& gpo = _db.get_dynamic_global_properties();
 
         if (o.state == worker_techspec_approve_state::disapprove) {
-            auto disapprovers = count_approvers(worker_techspec_approve_state::disapprove);
+            auto disapprovers = count_worker_approves(_db, wrao_idx, worker_result_post.id, worker_techspec_approve_state::disapprove);
 
             if (disapprovers < STEEMIT_SUPER_MAJOR_VOTED_WITNESSES) {
                 return;
@@ -395,7 +381,7 @@ namespace golos { namespace chain {
                 logic_exception::insufficient_funds_to_approve_worker_result,
                 "Insufficient funds to approve worker result");
 
-            auto approvers = count_approvers(worker_techspec_approve_state::approve);
+            auto approvers = count_worker_approves(_db, wrao_idx, worker_result_post.id, worker_techspec_approve_state::approve);
 
             if (approvers < STEEMIT_MAJOR_VOTED_WITNESSES) {
                 return;
@@ -449,6 +435,59 @@ namespace golos { namespace chain {
         _db.modify(wto, [&](worker_techspec_object& wto) {
             wto.worker = o.worker;
             wto.state = worker_techspec_state::work;
+        });
+    }
+
+    void worker_payment_approve_evaluator::do_apply(const worker_payment_approve_operation& o) {
+        ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_payment_approve_operation");
+
+        auto approver_witness = _db.get_witness(o.approver);
+        GOLOS_CHECK_LOGIC(approver_witness.schedule == witness_object::top19,
+            logic_exception::approver_of_payment_should_be_in_top19_of_witnesses,
+            "Approver of payment should be in Top 19 of witnesses");
+
+        const auto& worker_result_post = _db.get_comment(o.worker_result_author, o.worker_result_permlink);
+        const auto& wto = _db.get_worker_result(worker_result_post.id);
+
+        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::payment,
+            logic_exception::worker_techspec_should_be_in_payment_state,
+            "Worker techspec should be in payment state");
+
+        const auto& wpao_idx = _db.get_index<worker_payment_approve_index, by_result_approver>();
+        auto wpao_itr = wpao_idx.find(std::make_tuple(worker_result_post.id, o.approver));
+
+        if (o.state != worker_techspec_approve_state::disapprove) {
+            if (wpao_itr != wpao_idx.end()) {
+                _db.remove(*wpao_itr);
+            }
+
+            return;
+        }
+
+        if (wpao_itr != wpao_idx.end()) {
+            return;
+        }
+
+        _db.create<worker_payment_approve_object>([&](worker_payment_approve_object& wpao) {
+            wpao.approver = o.approver;
+            wpao.post = worker_result_post.id;
+            wpao.state = o.state;
+        });
+
+        auto disapprovers = count_worker_approves(_db, wpao_idx, worker_result_post.id, worker_techspec_approve_state::disapprove);
+
+        if (disapprovers < STEEMIT_SUPER_MAJOR_VOTED_WITNESSES) {
+            return;
+        }
+
+        const auto& gpo = _db.get_dynamic_global_properties();
+        _db.modify(gpo, [&](dynamic_global_property_object& gpo) {
+            gpo.worker_consumption_per_month -= _db.calculate_worker_techspec_month_consumption(wto);
+        });
+
+        _db.modify(wto, [&](worker_techspec_object& wto) {
+            wto.state = worker_techspec_state::payment_canceled;
+            wto.next_cashout_time = time_point_sec::maximum();
         });
     }
 

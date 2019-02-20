@@ -33,6 +33,7 @@ namespace golos { namespace chain {
         complete,
         payment,
         payment_complete,
+        payment_canceled,
         closed
     };
 
@@ -84,6 +85,22 @@ namespace golos { namespace chain {
 
         template <typename Constructor, typename Allocator>
         worker_result_approve_object(Constructor&& c, allocator <Allocator> a) {
+            c(*this);
+        };
+
+        id_type id;
+
+        account_name_type approver;
+        comment_id_type post;
+        worker_techspec_approve_state state;
+    };
+
+    class worker_payment_approve_object : public object<worker_payment_approve_object_type, worker_payment_approve_object> {
+    public:
+        worker_payment_approve_object() = delete;
+
+        template <typename Constructor, typename Allocator>
+        worker_payment_approve_object(Constructor&& c, allocator <Allocator> a) {
             c(*this);
         };
 
@@ -179,6 +196,23 @@ namespace golos { namespace chain {
                     std::less<account_name_type>>>>,
         allocator<worker_result_approve_object>>;
 
+    using worker_payment_approve_index = multi_index_container<
+        worker_payment_approve_object,
+        indexed_by<
+            ordered_unique<
+                tag<by_id>,
+                member<worker_payment_approve_object, worker_payment_approve_object_id_type, &worker_payment_approve_object::id>>,
+            ordered_unique<
+                tag<by_result_approver>,
+                composite_key<
+                    worker_payment_approve_object,
+                    member<worker_payment_approve_object, comment_id_type, &worker_payment_approve_object::post>,
+                    member<worker_payment_approve_object, account_name_type, &worker_payment_approve_object::approver>>,
+                composite_key_compare<
+                    std::less<comment_id_type>,
+                    std::less<account_name_type>>>>,
+        allocator<worker_payment_approve_object>>;
+
 } } // golos::chain
 
 FC_REFLECT_ENUM(golos::chain::worker_proposal_state, (created)(techspec))
@@ -187,7 +221,7 @@ CHAINBASE_SET_INDEX_TYPE(
     golos::chain::worker_proposal_object,
     golos::chain::worker_proposal_index);
 
-FC_REFLECT_ENUM(golos::chain::worker_techspec_state, (created)(approved)(work)(complete)(payment)(payment_complete)(closed))
+FC_REFLECT_ENUM(golos::chain::worker_techspec_state, (created)(approved)(work)(complete)(payment)(payment_complete)(payment_canceled)(closed))
 
 CHAINBASE_SET_INDEX_TYPE(
     golos::chain::worker_techspec_object,
@@ -200,3 +234,7 @@ CHAINBASE_SET_INDEX_TYPE(
 CHAINBASE_SET_INDEX_TYPE(
     golos::chain::worker_result_approve_object,
     golos::chain::worker_result_approve_index);
+
+CHAINBASE_SET_INDEX_TYPE(
+    golos::chain::worker_payment_approve_object,
+    golos::chain::worker_payment_approve_index);
