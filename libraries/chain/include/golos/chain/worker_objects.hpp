@@ -14,19 +14,16 @@ namespace golos { namespace chain {
         worker_proposal_object() = delete;
 
         template <typename Constructor, typename Allocator>
-        worker_proposal_object(Constructor&& c, allocator <Allocator> a)
-            : approved_techspec_permlink(a) {
+        worker_proposal_object(Constructor&& c, allocator <Allocator> a) {
             c(*this);
         };
 
         id_type id;
 
-        account_name_type author;
         comment_id_type post;
         worker_proposal_type type;
         worker_proposal_state state;
-        account_name_type approved_techspec_author;
-        shared_string approved_techspec_permlink;
+        comment_id_type approved_techspec_post;
     };
 
     enum class worker_techspec_state {
@@ -44,23 +41,20 @@ namespace golos { namespace chain {
         worker_techspec_object() = delete;
 
         template <typename Constructor, typename Allocator>
-        worker_techspec_object(Constructor&& c, allocator <Allocator> a)
-            : worker_proposal_permlink(a), worker_result_permlink(a) {
+        worker_techspec_object(Constructor&& c, allocator <Allocator> a) {
             c(*this);
         };
 
         id_type id;
 
-        account_name_type author;
         comment_id_type post;
-        account_name_type worker_proposal_author;
-        shared_string worker_proposal_permlink;
+        comment_id_type worker_proposal_post;
         worker_techspec_state state;
         time_point_sec created;
         asset specification_cost;
         asset development_cost;
         account_name_type worker;
-        shared_string worker_result_permlink;
+        comment_id_type worker_result_post;
         time_point_sec completion_date;
         uint16_t payments_count;
         uint32_t payments_interval;
@@ -129,24 +123,10 @@ namespace golos { namespace chain {
                 member<worker_techspec_object, comment_id_type, &worker_techspec_object::post>>,
             ordered_non_unique<
                 tag<by_worker_proposal>,
-                composite_key<
-                    worker_techspec_object,
-                    member<worker_techspec_object, account_name_type, &worker_techspec_object::worker_proposal_author>,
-                    member<worker_techspec_object, shared_string, &worker_techspec_object::worker_proposal_permlink>,
-                    member<worker_techspec_object, account_name_type, &worker_techspec_object::author>>,
-                composite_key_compare<
-                    std::less<account_name_type>,
-                    chainbase::strcmp_less,
-                    std::less<account_name_type>>>,
+                member<worker_techspec_object, comment_id_type, &worker_techspec_object::worker_proposal_post>>,
             ordered_unique<
                 tag<by_worker_result>,
-                composite_key<
-                    worker_techspec_object,
-                    member<worker_techspec_object, account_name_type, &worker_techspec_object::author>,
-                    member<worker_techspec_object, shared_string, &worker_techspec_object::worker_result_permlink>>,
-                composite_key_compare<
-                    std::less<account_name_type>,
-                    chainbase::strcmp_less>>,
+                member<worker_techspec_object, comment_id_type, &worker_techspec_object::worker_result_post>>,
             ordered_unique<
                 tag<by_next_cashout_time>,
                 composite_key<

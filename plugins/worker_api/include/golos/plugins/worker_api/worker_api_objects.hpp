@@ -28,7 +28,6 @@ namespace golos { namespace plugins { namespace worker_api {
 
         id_type id;
 
-        account_name_type author;
         comment_id_type post;
         time_point_sec created;
         time_point_sec modified;
@@ -46,7 +45,6 @@ namespace golos { namespace plugins { namespace worker_api {
 
         id_type id;
 
-        account_name_type author;
         comment_id_type post;
         time_point_sec modified;
         share_type net_rshares;
@@ -138,15 +136,12 @@ namespace golos { namespace plugins { namespace worker_api {
         void fill_worker_proposal(const worker_proposal_object& wpo) {
             type = wpo.type;
             state = wpo.state;
-            approved_techspec_author = wpo.approved_techspec_author;
-            approved_techspec_permlink = to_string(wpo.approved_techspec_permlink);
         }
 
         comment_api_object post;
         worker_proposal_type type;
         worker_proposal_state state;
-        account_name_type approved_techspec_author;
-        std::string approved_techspec_permlink;
+        comment_api_object approved_techspec_post;
         time_point_sec created;
         time_point_sec modified;
         share_type net_rshares;
@@ -168,14 +163,11 @@ namespace golos { namespace plugins { namespace worker_api {
         }
 
         void fill_worker_techspec(const worker_techspec_object& wto) {
-            worker_proposal_author = wto.worker_proposal_author;
-            worker_proposal_permlink = to_string(wto.worker_proposal_permlink);
             state = wto.state;
             created = wto.created;
             specification_cost = wto.specification_cost;
             development_cost = wto.development_cost;
             worker = wto.worker;
-            worker_result_permlink = to_string(wto.worker_result_permlink);
             completion_date = wto.completion_date;
             payments_count = wto.payments_count;
             payments_interval = wto.payments_interval;
@@ -184,8 +176,7 @@ namespace golos { namespace plugins { namespace worker_api {
         }
 
         comment_api_object post;
-        account_name_type worker_proposal_author;
-        std::string worker_proposal_permlink;
+        comment_api_object worker_proposal_post;
         worker_techspec_state state;
         time_point_sec created;
         time_point_sec modified;
@@ -196,7 +187,7 @@ namespace golos { namespace plugins { namespace worker_api {
         uint16_t disapproves = 0;
         account_name_type worker;
         time_point_sec work_beginning_time;
-        std::string worker_result_permlink;
+        comment_api_object worker_result_post;
         time_point_sec completion_date;
         uint16_t payments_count = 0;
         uint32_t payments_interval = 0;
@@ -217,11 +208,11 @@ CHAINBASE_SET_INDEX_TYPE(
     golos::plugins::worker_api::worker_techspec_metadata_index)
 
 FC_REFLECT((golos::plugins::worker_api::worker_proposal_api_object),
-    (post)(type)(state)(approved_techspec_author)(approved_techspec_permlink)(created)(modified)(net_rshares)
+    (post)(type)(state)(approved_techspec_post)(created)(modified)(net_rshares)
 )
 
 FC_REFLECT((golos::plugins::worker_api::worker_techspec_api_object),
-    (post)(worker_proposal_author)(worker_proposal_permlink)(state)(created)(modified)(net_rshares)(specification_cost)
-    (development_cost)(approves)(disapproves)(worker)(work_beginning_time)(worker_result_permlink)(completion_date)(payments_count)
-    (payments_interval)(month_consumption)(payment_beginning_time)(next_cashout_time)(finished_payments_count)
+    (post)(worker_proposal_post)(state)(created)(modified)(net_rshares)(specification_cost)(development_cost)(approves)(disapproves)
+    (worker)(work_beginning_time)(worker_result_post)(completion_date)(payments_count)(payments_interval)(month_consumption)
+    (payment_beginning_time)(next_cashout_time)(finished_payments_count)
 )

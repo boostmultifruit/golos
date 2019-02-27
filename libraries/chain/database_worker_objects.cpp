@@ -28,36 +28,15 @@ namespace golos { namespace chain {
         return find<worker_techspec_object, by_post>(post);
     }
 
-    const worker_techspec_object& database::get_worker_result(
-        const account_name_type& author,
-        const std::string& permlink
-    ) const { try {
-        return get<worker_techspec_object, by_worker_result>(std::make_tuple(author, permlink));
+    const worker_techspec_object& database::get_worker_result(const comment_id_type& post) const { try {
+        return get<worker_techspec_object, by_worker_result>(post);
     } catch (const std::out_of_range &e) {
-        GOLOS_THROW_MISSING_OBJECT("worker_techspec_object", fc::mutable_variant_object()("author",author)("worker_result_permlink",permlink));
-    } FC_CAPTURE_AND_RETHROW((author)(permlink)) }
+        const auto& comment = get_comment(post);
+        GOLOS_THROW_MISSING_OBJECT("worker_techspec_object", fc::mutable_variant_object()("author",comment.author)("worker_result_permlink",comment.permlink));
+    } FC_CAPTURE_AND_RETHROW((post)) }
 
-    const worker_techspec_object& database::get_worker_result(
-        const account_name_type& author,
-        const shared_string& permlink
-    ) const { try {
-        return get<worker_techspec_object, by_worker_result>(std::make_tuple(author, permlink));
-    } catch (const std::out_of_range &e) {
-        GOLOS_THROW_MISSING_OBJECT("worker_techspec_object", fc::mutable_variant_object()("author",author)("worker_result_permlink",permlink));
-    } FC_CAPTURE_AND_RETHROW((author)(permlink)) }
-
-    const worker_techspec_object* database::find_worker_result(
-        const account_name_type& author,
-        const std::string& permlink
-    ) const {
-        return find<worker_techspec_object, by_worker_result>(std::make_tuple(author, permlink));
-    }
-
-    const worker_techspec_object* database::find_worker_result(
-        const account_name_type& author,
-        const shared_string& permlink
-    ) const {
-        return find<worker_techspec_object, by_worker_result>(std::make_tuple(author, permlink));
+    const worker_techspec_object* database::find_worker_result(const comment_id_type& post) const {
+        return find<worker_techspec_object, by_worker_result>(post);
     }
 
     asset database::calculate_worker_techspec_month_consumption(const worker_techspec_object& wto) {
@@ -117,12 +96,13 @@ namespace golos { namespace chain {
                 gpo.total_worker_fund_steem -= (author_reward + worker_reward);
             });
 
-            adjust_balance(get_account(wto_itr->author), author_reward);
+            const auto& wto_post = get_comment(wto_itr->post);
+
+            adjust_balance(get_account(wto_post.author), author_reward);
             adjust_balance(get_account(wto_itr->worker), worker_reward);
 
-            const auto& wto_post = get_comment(wto_itr->post);
-            push_virtual_operation(techspec_reward_operation(wto_itr->author, to_string(wto_post.permlink), author_reward));
-            push_virtual_operation(worker_reward_operation(wto_itr->worker, wto_itr->author, to_string(wto_post.permlink), worker_reward));
+            push_virtual_operation(techspec_reward_operation(wto_post.author, to_string(wto_post.permlink), author_reward));
+            push_virtual_operation(worker_reward_operation(wto_itr->worker, wto_post.author, to_string(wto_post.permlink), worker_reward));
         }
     }
 
