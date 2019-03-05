@@ -160,8 +160,11 @@ namespace golos { namespace chain {
         const auto& mprops = get_witness_schedule_object().median_props;
 
         const auto& idx = get_index<worker_techspec_index>().indices().get<by_created>();
-        auto itr = idx.begin();
-        while (itr != idx.end() && itr->created + mprops.worker_techspec_approve_term_sec <= head_block_time()) {
+        for (auto itr = idx.begin(); itr != idx.end(); itr++) {
+            if (uint64_t(itr->created.sec_since_epoch()) + mprops.worker_techspec_approve_term_sec > head_block_time().sec_since_epoch()) {
+                break;
+            }
+
             clear_worker_techspec_approves(*itr);
 
             modify(*itr, [&](worker_techspec_object& wto) {
