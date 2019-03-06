@@ -176,7 +176,11 @@ namespace golos { namespace chain {
 
         const auto& idx = get_index<worker_techspec_index>().indices().get<by_created>();
         auto itr = idx.begin();
-        for (; itr != idx.end() && head_block_time() <= itr->created + mprops.worker_techspec_approve_term_sec; itr++) {
+        for (; itr != idx.end() && head_block_time() > itr->created + mprops.worker_techspec_approve_term_sec; itr++) {
+            if (itr->state != worker_techspec_state::created) {
+                continue;
+            }
+
             clear_worker_techspec_approves(*itr);
 
             modify(*itr, [&](worker_techspec_object& wto) {
