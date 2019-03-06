@@ -3220,8 +3220,7 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
         }
 
         annotated_signed_transaction wallet_api::worker_result(
-                const std::string& author, const std::string& permlink, const std::string& worker_techspec_permlink,
-                time_point_sec completion_date, bool broadcast
+                const std::string& author, const std::string& permlink, const std::string& worker_techspec_permlink, bool broadcast
         ) {
             WALLET_CHECK_UNLOCKED();
 
@@ -3229,7 +3228,6 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
             op.author = author;
             op.permlink = permlink;
             op.worker_techspec_permlink = worker_techspec_permlink;
-            op.completion_date = completion_date;
 
             signed_transaction tx;
             tx.operations.push_back(op);
@@ -3241,7 +3239,7 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
                 const std::string& author, const std::string& permlink,
                 const std::string& worker_proposal_author, const std::string& worker_proposal_permlink,
                 const asset& specification_cost, const asset& development_cost,
-                uint16_t payments_count, uint32_t payments_interval, time_point_sec completion_date, bool broadcast
+                uint16_t payments_count, uint32_t payments_interval, bool broadcast
         ) {
             WALLET_CHECK_UNLOCKED();
 
@@ -3254,7 +3252,6 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
             op.development_cost = development_cost;
             op.payments_count = payments_count;
             op.payments_interval = payments_interval;
-            op.completion_date = completion_date;
 
             signed_transaction tx;
             tx.operations.push_back(op);

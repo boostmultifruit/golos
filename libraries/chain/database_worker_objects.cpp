@@ -174,9 +174,15 @@ namespace golos { namespace chain {
 
         const auto& mprops = get_witness_schedule_object().median_props;
 
-        const auto& idx = get_index<worker_techspec_index>().indices().get<by_created>();
-        auto itr = idx.begin();
-        for (; itr != idx.end() && head_block_time() > itr->created + mprops.worker_techspec_approve_term_sec; itr++) {
+        const auto now = head_block_time();
+
+        const auto& idx = get_index<worker_techspec_index>().indices().get<by_post>();
+        for (auto itr = idx.begin(); itr != idx.end(); itr++) {
+            const auto& wto_post = get_comment(itr->post);
+            if (wto_post.created + mprops.worker_techspec_approve_term_sec > now) {
+                break;
+            }
+
             if (itr->state != worker_techspec_state::created) {
                 continue;
             }

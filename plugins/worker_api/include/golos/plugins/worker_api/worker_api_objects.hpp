@@ -212,11 +212,9 @@ namespace golos { namespace plugins { namespace worker_api {
 
         void fill_worker_techspec(const worker_techspec_object& wto) {
             state = wto.state;
-            created = wto.created;
             specification_cost = wto.specification_cost;
             development_cost = wto.development_cost;
             worker = wto.worker;
-            completion_date = wto.completion_date;
             payments_count = wto.payments_count;
             payments_interval = wto.payments_interval;
             next_cashout_time = wto.next_cashout_time;
@@ -226,7 +224,6 @@ namespace golos { namespace plugins { namespace worker_api {
         comment_api_object post;
         comment_api_object worker_proposal_post;
         worker_techspec_state state;
-        time_point_sec created;
         time_point_sec modified;
         share_type net_rshares;
         asset specification_cost;
@@ -235,7 +232,6 @@ namespace golos { namespace plugins { namespace worker_api {
         uint16_t disapproves = 0;
         account_name_type worker;
         time_point_sec work_beginning_time;
-        time_point_sec completion_date;
         comment_api_object worker_result_post;
         uint16_t worker_result_approves = 0;
         uint16_t worker_result_disapproves = 0;
@@ -264,8 +260,8 @@ FC_REFLECT((golos::plugins::worker_api::worker_proposal_api_object),
 )
 
 FC_REFLECT((golos::plugins::worker_api::worker_techspec_api_object),
-    (post)(worker_proposal_post)(state)(created)(modified)(net_rshares)(specification_cost)(development_cost)(approves)(disapproves)
-    (worker)(work_beginning_time)(completion_date)(worker_result_post)(worker_result_approves)(worker_result_disapproves)
-    (payments_count)(payments_interval)(month_consumption)(payment_beginning_time)(next_cashout_time)(finished_payments_count)
+    (post)(worker_proposal_post)(state)(modified)(net_rshares)(specification_cost)(development_cost)(approves)(disapproves)
+    (worker)(work_beginning_time)(worker_result_post)(worker_result_approves)(worker_result_disapproves)(payments_count)
+    (payments_interval)(month_consumption)(payment_beginning_time)(next_cashout_time)(finished_payments_count)
     (worker_payment_approves)(worker_payment_disapproves)
 )

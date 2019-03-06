@@ -51,12 +51,10 @@ namespace golos { namespace chain {
         comment_id_type post;
         comment_id_type worker_proposal_post;
         worker_techspec_state state;
-        time_point_sec created;
         asset specification_cost;
         asset development_cost;
         account_name_type worker;
         comment_id_type worker_result_post;
-        time_point_sec completion_date;
         uint16_t payments_count;
         uint32_t payments_interval;
         time_point_sec next_cashout_time = time_point_sec::maximum();
@@ -127,7 +125,6 @@ namespace golos { namespace chain {
     struct by_worker_proposal;
     struct by_worker_result;
     struct by_next_cashout_time;
-    struct by_created;
 
     using worker_techspec_index = multi_index_container<
         worker_techspec_object,
@@ -149,12 +146,6 @@ namespace golos { namespace chain {
                 composite_key<
                     worker_techspec_object,
                     member<worker_techspec_object, time_point_sec, &worker_techspec_object::next_cashout_time>,
-                    member<worker_techspec_object, worker_techspec_object_id_type, &worker_techspec_object::id>>>,
-            ordered_unique<
-                tag<by_created>,
-                composite_key<
-                    worker_techspec_object,
-                    member<worker_techspec_object, time_point_sec, &worker_techspec_object::created>,
                     member<worker_techspec_object, worker_techspec_object_id_type, &worker_techspec_object::id>>>>,
         allocator<worker_techspec_object>>;
 
