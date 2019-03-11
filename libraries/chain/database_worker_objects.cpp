@@ -10,7 +10,7 @@ namespace golos { namespace chain {
         return get<worker_proposal_object, by_post>(post);
     } catch (const std::out_of_range &e) {
         const auto& comment = get_comment(post);
-        GOLOS_THROW_MISSING_OBJECT("worker_proposal_object", fc::mutable_variant_object()("author",comment.author)("permlink",comment.permlink));
+        GOLOS_THROW_MISSING_OBJECT("worker_proposal_object", fc::mutable_variant_object()("account",comment.author)("permlink",comment.permlink));
     } FC_CAPTURE_AND_RETHROW((post)) }
 
     const worker_proposal_object* database::find_worker_proposal(const comment_id_type& post) const {
@@ -21,7 +21,7 @@ namespace golos { namespace chain {
         return get<worker_techspec_object, by_post>(post);
     } catch (const std::out_of_range &e) {
         const auto& comment = get_comment(post);
-        GOLOS_THROW_MISSING_OBJECT("worker_techspec_object", fc::mutable_variant_object()("author",comment.author)("permlink",comment.permlink));
+        GOLOS_THROW_MISSING_OBJECT("worker_techspec_object", fc::mutable_variant_object()("account",comment.author)("permlink",comment.permlink));
     } FC_CAPTURE_AND_RETHROW((post)) }
 
     const worker_techspec_object* database::find_worker_techspec(const comment_id_type& post) const {
@@ -32,7 +32,7 @@ namespace golos { namespace chain {
         return get<worker_techspec_object, by_worker_result>(post);
     } catch (const std::out_of_range &e) {
         const auto& comment = get_comment(post);
-        GOLOS_THROW_MISSING_OBJECT("worker_techspec_object", fc::mutable_variant_object()("author",comment.author)("worker_result_permlink",comment.permlink));
+        GOLOS_THROW_MISSING_OBJECT("worker_techspec_object", fc::mutable_variant_object()("account",comment.author)("worker_result_permlink",comment.permlink));
     } FC_CAPTURE_AND_RETHROW((post)) }
 
     const worker_techspec_object* database::find_worker_result(const comment_id_type& post) const {
