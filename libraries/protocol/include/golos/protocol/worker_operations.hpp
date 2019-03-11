@@ -112,7 +112,6 @@ namespace golos { namespace protocol {
         account_name_type author;
         std::string permlink;
         std::string worker_techspec_permlink;
-        time_point_sec completion_date = time_point_sec::min();
 
         extensions_type extensions;
 
@@ -132,7 +131,6 @@ namespace golos { namespace protocol {
         asset development_cost;
         uint16_t payments_count;
         uint32_t payments_interval;
-        time_point_sec completion_date = time_point_sec::min();
 
         extensions_type extensions;
 
@@ -217,12 +215,12 @@ FC_REFLECT(
 
 FC_REFLECT(
     (golos::protocol::worker_result_operation),
-    (author)(permlink)(worker_techspec_permlink)(completion_date)(extensions))
+    (author)(permlink)(worker_techspec_permlink)(extensions))
 
 FC_REFLECT(
     (golos::protocol::worker_result_premade_operation),
     (author)(permlink)(worker_proposal_author)(worker_proposal_permlink)(specification_cost)(development_cost)
-    (payments_count)(payments_interval)(completion_date)(extensions))
+    (payments_count)(payments_interval)(extensions))
 
 FC_REFLECT(
     (golos::protocol::worker_result_delete_operation),

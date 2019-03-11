@@ -64,8 +64,6 @@ namespace golos { namespace chain {
     void worker_techspec_evaluator::do_apply(const worker_techspec_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_techspec_operation");
 
-        const auto now = _db.head_block_time();
-
         const auto& post = _db.get_comment(o.author, o.permlink);
 
         GOLOS_CHECK_LOGIC(post.parent_author == STEEMIT_ROOT_POST_PARENT,
@@ -106,7 +104,6 @@ namespace golos { namespace chain {
             wto.post = post.id;
             wto.worker_proposal_post = wpo->post;
             wto.state = worker_techspec_state::created;
-            wto.created = now;
             wto.specification_cost = o.specification_cost;
             wto.development_cost = o.development_cost;
             wto.payments_count = o.payments_count;
@@ -251,12 +248,6 @@ namespace golos { namespace chain {
     void worker_result_evaluator::do_apply(const worker_result_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_result_operation");
 
-        const auto now = _db.head_block_time();
-
-        GOLOS_CHECK_LOGIC(o.completion_date <= now,
-            logic_exception::work_completion_date_cannot_be_in_future,
-            "Work completion date cannot be in future");
-
         const auto& post = _db.get_comment(o.author, o.permlink);
 
         worker_result_check_post(_db, post);
@@ -276,25 +267,12 @@ namespace golos { namespace chain {
 
         _db.modify(wto, [&](worker_techspec_object& wto) {
             wto.worker_result_post = post.id;
-
-            if (o.completion_date != time_point_sec::min()) {
-                wto.completion_date = o.completion_date;
-            } else {
-                wto.completion_date = now;
-            }
-
             wto.state = worker_techspec_state::complete;
         });
     }
 
     void worker_result_premade_evaluator::do_apply(const worker_result_premade_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_result_premade_operation");
-
-        const auto now = _db.head_block_time();
-
-        GOLOS_CHECK_LOGIC(o.completion_date <= now,
-            logic_exception::work_completion_date_cannot_be_in_future,
-            "Work completion date cannot be in future");
 
         const auto& post = _db.get_comment(o.author, o.permlink);
 
@@ -314,7 +292,6 @@ namespace golos { namespace chain {
         _db.create<worker_techspec_object>([&](worker_techspec_object& wto) {
             wto.post = post.id;
             wto.worker_proposal_post = wpo_post.id;
-            wto.created = now;
             wto.worker = o.author;
             wto.specification_cost = o.specification_cost;
             wto.development_cost = o.development_cost;
@@ -322,13 +299,6 @@ namespace golos { namespace chain {
             wto.payments_interval = o.payments_interval;
 
             wto.worker_result_post = post.id;
-
-            if (o.completion_date != time_point_sec::min()) {
-                wto.completion_date = o.completion_date;
-            } else {
-                wto.completion_date = now;
-            }
-
             wto.state = worker_techspec_state::complete;
         });
     }
@@ -345,7 +315,6 @@ namespace golos { namespace chain {
 
         _db.modify(wto, [&](worker_techspec_object& wto) {
             wto.worker_result_post = comment_id_type();
-            wto.completion_date = time_point::min();
             wto.state = worker_techspec_state::work;
         });
     }
@@ -374,7 +343,7 @@ namespace golos { namespace chain {
             "Worker techspec should be complete to approve result");
 
         const auto& mprops = _db.get_witness_schedule_object().median_props;
-        GOLOS_CHECK_LOGIC(_db.head_block_time() <= wto.completion_date + mprops.worker_result_approve_term_sec,
+        GOLOS_CHECK_LOGIC(_db.head_block_time() <= worker_result_post.created + mprops.worker_result_approve_term_sec,
             logic_exception::approve_term_has_expired,
             "Approve term has expired");
 

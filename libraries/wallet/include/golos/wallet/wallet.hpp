@@ -1480,12 +1480,10 @@ namespace golos { namespace wallet {
              * @param author author of the post and of the worker techspec
              * @param permlink permlink of the post
              * @param worker_techspec_permlink permlink of the worker techspec
-             * @param completion_date date when work on techspec is finished 
              * @param broadcast true if you wish to broadcast the transaction
              */
             annotated_signed_transaction worker_result(
-                const std::string& author, const std::string& permlink, const std::string& worker_techspec_permlink,
-                time_point_sec completion_date, bool broadcast
+                const std::string& author, const std::string& permlink, const std::string& worker_techspec_permlink, bool broadcast
                 );
 
             /**
@@ -1499,14 +1497,13 @@ namespace golos { namespace wallet {
              * @param development_cost cost of work
              * @param payments_count count of payments for work and techspec
              * @param payments_interval interval between payments in seconds
-             * @param completion_date date when worker premade result is published
              * @param broadcast true if you wish to broadcast the transaction
              */
             annotated_signed_transaction premade_worker_result(
                 const std::string& author, const std::string& permlink,
                 const std::string& worker_proposal_author, const std::string& worker_proposal_permlink,
                 const asset& specification_cost, const asset& development_cost,
-                uint16_t payments_count, uint32_t payments_interval, time_point_sec completion_date, bool broadcast
+                uint16_t payments_count, uint32_t payments_interval, bool broadcast
                 );
 
             /**
