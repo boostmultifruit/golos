@@ -67,12 +67,11 @@ namespace golos { namespace chain {
         return count_worker_approves<worker_payment_approve_index, by_result_approver>(*this, worker_result_post);
     }
 
-    asset database::calculate_worker_techspec_month_consumption(const worker_techspec_object& wto) {
-        auto month_sec = fc::days(30).to_seconds();
+    asset database::calculate_worker_techspec_consumption_per_day(const worker_techspec_object& wto) {
         auto payments_period = int64_t(wto.payments_interval) * wto.payments_count;
         uint128_t cost(wto.development_cost.amount.value);
         cost += wto.specification_cost.amount.value;
-        cost *= std::min(month_sec, payments_period);
+        cost *= fc::days(1).to_seconds();
         cost /= payments_period;
         return asset(cost.to_uint64(), STEEM_SYMBOL);
     }
@@ -105,7 +104,7 @@ namespace golos { namespace chain {
 
             if (remaining_payments_count == 1) {
                 modify(gpo, [&](dynamic_global_property_object& gpo) {
-                    gpo.worker_consumption_per_month -= calculate_worker_techspec_month_consumption(*wto_itr);
+                    gpo.worker_consumption_per_day -= calculate_worker_techspec_consumption_per_day(*wto_itr);
                 });
 
                 clear_worker_payment_approves(*wto_itr);

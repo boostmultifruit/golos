@@ -158,7 +158,7 @@ struct post_operation_visitor {
             }
 
             wtmo.payment_beginning_time = wto.next_cashout_time;
-            wtmo.month_consumption = _db.calculate_worker_techspec_month_consumption(wto);
+            wtmo.consumption_per_day = _db.calculate_worker_techspec_consumption_per_day(wto);
         });
     }
 
@@ -174,7 +174,7 @@ struct post_operation_visitor {
         const auto& wtmo_idx = _db.get_index<worker_techspec_metadata_index, by_post>();
         auto wtmo_itr = wtmo_idx.find(post.id);
         _db.modify(*wtmo_itr, [&](worker_techspec_metadata_object& wtmo) {
-            wtmo.month_consumption = asset(0, STEEM_SYMBOL);
+            wtmo.consumption_per_day = asset(0, STEEM_SYMBOL);
         });
     }
 
@@ -195,7 +195,7 @@ struct post_operation_visitor {
                 return;
             }
 
-            wtmo.month_consumption = asset(0, STEEM_SYMBOL);
+            wtmo.consumption_per_day = asset(0, STEEM_SYMBOL);
         });
     }
 };
