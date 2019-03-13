@@ -54,7 +54,7 @@ namespace golos { namespace plugins { namespace worker_api {
         uint16_t worker_result_approves = 0;
         uint16_t worker_result_disapproves = 0;
         time_point_sec payment_beginning_time;
-        asset month_consumption;
+        asset consumption_per_day;
         uint16_t worker_payment_approves = 0;
         uint16_t worker_payment_disapproves = 0;
     };
@@ -201,7 +201,7 @@ namespace golos { namespace plugins { namespace worker_api {
               work_beginning_time(o.work_beginning_time),
               worker_result_approves(o.worker_result_approves),
               worker_result_disapproves(o.worker_result_disapproves),
-              month_consumption(o.month_consumption),
+              consumption_per_day(o.consumption_per_day),
               payment_beginning_time(o.payment_beginning_time),
               worker_payment_approves(o.worker_payment_approves),
               worker_payment_disapproves(o.worker_payment_disapproves) {
@@ -237,7 +237,7 @@ namespace golos { namespace plugins { namespace worker_api {
         uint16_t worker_result_disapproves = 0;
         uint16_t payments_count = 0;
         uint32_t payments_interval = 0;
-        asset month_consumption;
+        asset consumption_per_day;
         time_point_sec payment_beginning_time;
         time_point_sec next_cashout_time = time_point_sec::maximum();
         uint16_t finished_payments_count = 0;
@@ -262,6 +262,6 @@ FC_REFLECT((golos::plugins::worker_api::worker_proposal_api_object),
 FC_REFLECT((golos::plugins::worker_api::worker_techspec_api_object),
     (post)(worker_proposal_post)(state)(modified)(net_rshares)(specification_cost)(development_cost)(approves)(disapproves)
     (worker)(work_beginning_time)(worker_result_post)(worker_result_approves)(worker_result_disapproves)(payments_count)
-    (payments_interval)(month_consumption)(payment_beginning_time)(next_cashout_time)(finished_payments_count)
+    (payments_interval)(consumption_per_day)(payment_beginning_time)(next_cashout_time)(finished_payments_count)
     (worker_payment_approves)(worker_payment_disapproves)
 )

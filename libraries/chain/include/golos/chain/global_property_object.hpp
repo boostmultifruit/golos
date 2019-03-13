@@ -146,8 +146,8 @@ namespace golos {
 
             uint16_t custom_ops_bandwidth_multiplier = STEEMIT_CUSTOM_OPS_BANDWIDTH_MULTIPLIER;
 
-            asset worker_revenue_per_month = asset(0, STEEM_SYMBOL);
-            asset worker_consumption_per_month = asset(0, STEEM_SYMBOL);
+            asset worker_revenue_per_day = asset(0, STEEM_SYMBOL);
+            asset worker_consumption_per_day = asset(0, STEEM_SYMBOL);
         };
 
         typedef multi_index_container <
@@ -194,7 +194,7 @@ FC_REFLECT((golos::chain::dynamic_global_property_object),
                 (vote_regeneration_per_day)
                 (custom_ops_bandwidth_multiplier)
                 (is_forced_min_price)
-                (worker_revenue_per_month)
-                (worker_consumption_per_month)
+                (worker_revenue_per_day)
+                (worker_consumption_per_day)
 )
 CHAINBASE_SET_INDEX_TYPE(golos::chain::dynamic_global_property_object, golos::chain::dynamic_global_property_index)

@@ -37,10 +37,12 @@ namespace golos { namespace protocol {
             GOLOS_CHECK_VALUE_GE(payments_count, 1);
         });
         GOLOS_CHECK_PARAM(payments_interval, {
-            GOLOS_CHECK_VALUE_GE(payments_interval, 1);
+            auto day_sec = fc::days(1).to_seconds();
+
+            GOLOS_CHECK_VALUE_GE(payments_interval, day_sec);
 
             if (payments_count == 1) {
-                GOLOS_CHECK_VALUE_EQ(payments_interval, 1);
+                GOLOS_CHECK_VALUE_EQ(payments_interval, day_sec);
             }
         });
     }
@@ -97,10 +99,12 @@ namespace golos { namespace protocol {
             GOLOS_CHECK_VALUE_GE(payments_count, 1);
         });
         GOLOS_CHECK_PARAM(payments_interval, {
-            GOLOS_CHECK_VALUE_GE(payments_interval, 1);
+            auto day_sec = fc::days(1).to_seconds();
+
+            GOLOS_CHECK_VALUE_GE(payments_interval, day_sec);
 
             if (payments_count == 1) {
-                GOLOS_CHECK_VALUE_EQ(payments_interval, 1);
+                GOLOS_CHECK_VALUE_EQ(payments_interval, day_sec);
             }
         });
     }
