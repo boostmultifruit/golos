@@ -10,7 +10,7 @@ using namespace golos;
 using namespace golos::protocol;
 using namespace golos::chain;
 
-BOOST_FIXTURE_TEST_SUITE(worker_tests, clean_database_fixture)
+BOOST_FIXTURE_TEST_SUITE(worker_proposal_tests, clean_database_fixture)
 
 BOOST_AUTO_TEST_CASE(worker_authorities) {
     BOOST_TEST_MESSAGE("Testing: worker_authorities");
