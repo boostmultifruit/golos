@@ -233,4 +233,78 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_create) {
     validate_database();
 }
 
+BOOST_AUTO_TEST_CASE(worker_techspec_apply_modify) {
+    BOOST_TEST_MESSAGE("Testing: worker_techspec_apply_modify");
+
+    ACTORS((alice)(bob)(carol))
+    generate_block();
+
+    signed_transaction tx;
+
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+
+    worker_proposal("alice", alice_private_key, "alice-proposal", worker_proposal_type::task);
+    generate_block();
+
+    comment_create("carol", carol_private_key, "carol-proposal", "", "carol-proposal");
+
+    worker_proposal("carol", carol_private_key, "carol-proposal", worker_proposal_type::task);
+    generate_block();
+
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
+
+    worker_techspec_operation op;
+    op.author = "bob";
+    op.permlink = "bob-techspec";
+    op.worker_proposal_author = "alice";
+    op.worker_proposal_permlink = "alice-proposal";
+    op.specification_cost = ASSET_GOLOS(6);
+    op.development_cost = ASSET_GOLOS(60);
+    op.payments_interval = 60*60*24*2;
+    op.payments_count = 2;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Trying to use worker techspec for two proposals case");
+
+    op.worker_proposal_author = "carol";
+    op.worker_proposal_permlink = "carol-proposal";
+    GOLOS_CHECK_ERROR_LOGIC(this_worker_techspec_is_already_used_for_another_worker_proposal, bob_private_key, op);
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Modify payments_count and payments_interval");
+
+    op.worker_proposal_author = "alice";
+    op.worker_proposal_permlink = "alice-proposal";
+    op.payments_interval = 60*60*24*2;
+    op.payments_count = 2;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+    generate_block();
+
+    {
+        const auto& wto_post = db->get_comment("bob", string("bob-techspec"));
+        const auto& wto = db->get_worker_techspec(wto_post.id);
+        BOOST_CHECK_EQUAL(wto.payments_count, op.payments_count);
+        BOOST_CHECK_EQUAL(wto.payments_interval, op.payments_interval);
+    }
+
+    BOOST_TEST_MESSAGE("-- Modify payments_count and payments_interval");
+
+    op.worker_proposal_author = "alice";
+    op.worker_proposal_permlink = "alice-proposal";
+    op.specification_cost = ASSET_GOLOS(7);
+    op.development_cost = ASSET_GOLOS(70);
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+    generate_block();
+
+    {
+        const auto& wto_post = db->get_comment("bob", string("bob-techspec"));
+        const auto& wto = db->get_worker_techspec(wto_post.id);
+        BOOST_CHECK_EQUAL(wto.specification_cost, op.specification_cost);
+        BOOST_CHECK_EQUAL(wto.development_cost, op.development_cost);
+    }
+
+    validate_database();
+}
+
 BOOST_AUTO_TEST_SUITE_END()
