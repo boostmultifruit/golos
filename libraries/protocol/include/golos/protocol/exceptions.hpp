@@ -339,6 +339,7 @@ namespace golos {
 
             // workers
             worker_proposal_can_be_created_only_on_post,
+            post_should_be_in_cashout_window,
             cannot_edit_worker_proposal_with_approved_techspec,
             cannot_delete_worker_proposal_with_approved_techspec,
             cannot_delete_worker_proposal_with_techspecs,
@@ -642,6 +643,7 @@ FC_REFLECT_ENUM(golos::logic_exception::error_types,
 
         // workers
         (worker_proposal_can_be_created_only_on_post)
+        (post_should_be_in_cashout_window)
         (cannot_edit_worker_proposal_with_approved_techspec)
         (cannot_delete_worker_proposal_with_approved_techspec)
         (cannot_delete_worker_proposal_with_techspecs)

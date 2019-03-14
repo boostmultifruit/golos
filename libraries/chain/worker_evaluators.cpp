@@ -12,6 +12,11 @@ namespace golos { namespace chain {
         logic_exception::you_already_have_voted_for_this_object_with_this_state, \
         "You already have voted for this object with this state")
 
+#define WORKER_CHECK_POST_IN_CASHOUT_WINDOW(POST) \
+        GOLOS_CHECK_LOGIC(POST.cashout_time > _db.head_block_time(), \
+            logic_exception::post_should_be_in_cashout_window, \
+            "Post should be in cashout window");
+
     void worker_proposal_evaluator::do_apply(const worker_proposal_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_proposal_operation");
 
@@ -33,6 +38,8 @@ namespace golos { namespace chain {
             });
             return;
         }
+
+        WORKER_CHECK_POST_IN_CASHOUT_WINDOW(post);
 
         _db.create<worker_proposal_object>([&](worker_proposal_object& wpo) {
             wpo.post = post.id;
@@ -101,6 +108,8 @@ namespace golos { namespace chain {
 
             return;
         }
+
+        WORKER_CHECK_POST_IN_CASHOUT_WINDOW(post);
 
         _db.create<worker_techspec_object>([&](worker_techspec_object& wto) {
             wto.post = post.id;
