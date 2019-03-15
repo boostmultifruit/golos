@@ -1,6 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
-#include "database_fixture.hpp"
+#include "worker_fixture.hpp"
 #include "helpers.hpp"
 
 #include <golos/protocol/worker_operations.hpp>
@@ -10,7 +10,7 @@ using namespace golos;
 using namespace golos::protocol;
 using namespace golos::chain;
 
-BOOST_FIXTURE_TEST_SUITE(worker_proposal_tests, clean_database_fixture)
+BOOST_FIXTURE_TEST_SUITE(worker_proposal_tests, worker_fixture)
 
 BOOST_AUTO_TEST_CASE(worker_authorities) {
     BOOST_TEST_MESSAGE("Testing: worker_authorities");
@@ -96,29 +96,62 @@ BOOST_AUTO_TEST_CASE(worker_proposal_apply_modify) {
 
     signed_transaction tx;
 
-    comment_create("alice", alice_private_key, "i-am-post", "", "i-am-post");
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
 
     worker_proposal_operation op;
     op.author = "alice";
-    op.permlink = "i-am-post";
-    op.type = worker_proposal_type::task;
+    op.permlink = "alice-proposal";
+    op.type = worker_proposal_type::premade_work;
     BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, alice_private_key, op));
     generate_block();
 
-    const auto& wpo_post = db->get_comment("alice", string("i-am-post"));
+    const auto& wpo_post = db->get_comment("alice", string("alice-proposal"));
     const auto* wpo = db->find_worker_proposal(wpo_post.id);
     BOOST_CHECK(wpo);
-    BOOST_CHECK(wpo->type == worker_proposal_type::task);
+    BOOST_CHECK(wpo->type == worker_proposal_type::premade_work);
 
     BOOST_TEST_MESSAGE("-- Modifying worker proposal");
 
-    op.type = worker_proposal_type::premade_work;
+    op.type = worker_proposal_type::task;
     BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, alice_private_key, op));
     generate_block();
 
     const auto* wpo_mod = db->find_worker_proposal(wpo_post.id);
     BOOST_CHECK(wpo_mod);
-    BOOST_CHECK(wpo_mod->type == worker_proposal_type::premade_work);
+    BOOST_CHECK(wpo_mod->type == worker_proposal_type::task);
+
+    BOOST_TEST_MESSAGE("-- Check cannot modify worker proposal with approved techspec");
+
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
+
+    worker_techspec_operation wtop;
+    wtop.author = "bob";
+    wtop.permlink = "bob-techspec";
+    wtop.worker_proposal_author = "alice";
+    wtop.worker_proposal_permlink = "alice-proposal";
+    wtop.specification_cost = ASSET_GOLOS(6);
+    wtop.development_cost = ASSET_GOLOS(60);
+    wtop.payments_interval = 60*60*24*2;
+    wtop.payments_count = 2;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
+
+    auto private_key = create_approvers(0, STEEMIT_MAJOR_VOTED_WITNESSES);
+
+    generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
+
+    for (auto i = 0; i < STEEMIT_MAJOR_VOTED_WITNESSES; ++i) {
+        const auto name = "approver" + std::to_string(i);
+        worker_techspec_approve_operation wtaop;
+        wtaop.approver = name;
+        wtaop.author = "bob";
+        wtaop.permlink = "bob-techspec";
+        wtaop.state = worker_techspec_approve_state::approve;
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, private_key, wtaop));
+        generate_block();
+    }
+
+    op.type = worker_proposal_type::task;
+    GOLOS_CHECK_ERROR_LOGIC(cannot_edit_worker_proposal_with_approved_techspec, alice_private_key, op);
 }
 
 BOOST_AUTO_TEST_CASE(worker_proposal_delete_apply) {
