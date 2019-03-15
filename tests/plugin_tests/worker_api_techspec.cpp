@@ -229,6 +229,112 @@ BOOST_AUTO_TEST_CASE(worker_techspec_delete) {
     validate_database();
 }
 
+BOOST_AUTO_TEST_CASE(worker_techspec_approve) {
+    BOOST_TEST_MESSAGE("Testing: worker_techspec_approve");
+
+    ACTORS((alice)(bob)(approver))
+    generate_block();
+
+    signed_transaction tx;
+
+    const auto& wtmo_idx = db->get_index<worker_techspec_metadata_index, by_post>();
+
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+
+    worker_proposal("alice", alice_private_key, "alice-proposal", worker_proposal_type::task);
+    generate_block();
+
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
+
+    worker_techspec_operation wtop;
+    wtop.author = "bob";
+    wtop.permlink = "bob-techspec";
+    wtop.worker_proposal_author = "alice";
+    wtop.worker_proposal_permlink = "alice-proposal";
+    wtop.specification_cost = ASSET_GOLOS(6);
+    wtop.development_cost = ASSET_GOLOS(60);
+    wtop.payments_interval = 60*60*24*2;
+    wtop.payments_count = 2;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Checking approves are 0 before approving");
+
+    const auto& wto_post = db->get_comment("bob", string("bob-techspec"));
+    auto wtmo_itr = wtmo_idx.find(wto_post.id);
+    BOOST_CHECK(wtmo_itr != wtmo_idx.end());
+    BOOST_CHECK_EQUAL(wtmo_itr->approves, 0);
+    BOOST_CHECK_EQUAL(wtmo_itr->disapproves, 0);
+
+    witness_create("approver", approver_private_key, "foo.bar", approver_private_key.get_public_key(), 1000);
+
+    generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
+
+    BOOST_TEST_MESSAGE("-- Approving worker techspec (after abstain)");
+
+    worker_techspec_approve_operation op;
+    op.approver = "approver";
+    op.author = "bob";
+    op.permlink = "bob-techspec";
+    op.state = worker_techspec_approve_state::approve;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+
+    wtmo_itr = wtmo_idx.find(wto_post.id);
+    BOOST_CHECK_EQUAL(wtmo_itr->approves, 1);
+    BOOST_CHECK_EQUAL(wtmo_itr->disapproves, 0);
+
+    BOOST_TEST_MESSAGE("-- Disapproving worker techspec (after approve)");
+
+    op.state = worker_techspec_approve_state::disapprove;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+
+    wtmo_itr = wtmo_idx.find(wto_post.id);
+    BOOST_CHECK_EQUAL(wtmo_itr->approves, 0);
+    BOOST_CHECK_EQUAL(wtmo_itr->disapproves, 1);
+
+    BOOST_TEST_MESSAGE("-- Abstaining worker techspec (after disapprove)");
+
+    op.state = worker_techspec_approve_state::abstain;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+
+    wtmo_itr = wtmo_idx.find(wto_post.id);
+    BOOST_CHECK_EQUAL(wtmo_itr->approves, 0);
+    BOOST_CHECK_EQUAL(wtmo_itr->disapproves, 0);
+
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Disapproving worker techspec (after abstain)");
+
+    op.state = worker_techspec_approve_state::disapprove;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+
+    wtmo_itr = wtmo_idx.find(wto_post.id);
+    BOOST_CHECK_EQUAL(wtmo_itr->approves, 0);
+    BOOST_CHECK_EQUAL(wtmo_itr->disapproves, 1);
+
+    BOOST_TEST_MESSAGE("-- Approving worker techspec (after disapprove)");
+
+    op.state = worker_techspec_approve_state::approve;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+
+    wtmo_itr = wtmo_idx.find(wto_post.id);
+    BOOST_CHECK_EQUAL(wtmo_itr->approves, 1);
+    BOOST_CHECK_EQUAL(wtmo_itr->disapproves, 0);
+
+    BOOST_TEST_MESSAGE("-- Abstaining worker techspec (after approve)");
+
+    op.state = worker_techspec_approve_state::abstain;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+
+    wtmo_itr = wtmo_idx.find(wto_post.id);
+    BOOST_CHECK_EQUAL(wtmo_itr->approves, 0);
+    BOOST_CHECK_EQUAL(wtmo_itr->disapproves, 0);
+
+    generate_block();
+
+    validate_database();
+}
+
 BOOST_AUTO_TEST_CASE(worker_assign) {
     BOOST_TEST_MESSAGE("Testing: worker_assign");
 
