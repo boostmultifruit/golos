@@ -304,6 +304,26 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_modify) {
         BOOST_CHECK_EQUAL(wto.development_cost, op.development_cost);
     }
 
+    BOOST_TEST_MESSAGE("-- Check cannot modify approved techspec");
+
+    auto private_key = create_approvers(0, STEEMIT_MAJOR_VOTED_WITNESSES);
+
+    generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
+
+    for (auto i = 0; i < STEEMIT_MAJOR_VOTED_WITNESSES; ++i) {
+        const auto name = "approver" + std::to_string(i);
+        worker_techspec_approve_operation wtaop;
+        wtaop.approver = name;
+        wtaop.author = "bob";
+        wtaop.permlink = "bob-techspec";
+        wtaop.state = worker_techspec_approve_state::approve;
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, private_key, wtaop));
+        generate_block();
+    }
+
+    op.development_cost = ASSET_GOLOS(50);
+    GOLOS_CHECK_ERROR_LOGIC(this_worker_proposal_already_has_approved_techspec, bob_private_key, op);
+
     validate_database();
 }
 
