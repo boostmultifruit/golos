@@ -179,4 +179,84 @@ BOOST_AUTO_TEST_CASE(worker_techspec_vote) {
     validate_database();
 }
 
+BOOST_AUTO_TEST_CASE(worker_assign) {
+    BOOST_TEST_MESSAGE("Testing: worker_assign");
+
+    ACTORS((alice)(bob))
+    auto private_key = create_approvers(0, STEEMIT_MAJOR_VOTED_WITNESSES);
+    generate_block();
+
+    signed_transaction tx;
+
+    const auto& wtmo_idx = db->get_index<worker_techspec_metadata_index, by_post>();
+
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+
+    worker_proposal("alice", alice_private_key, "alice-proposal", worker_proposal_type::task);
+    generate_block();
+
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
+
+    worker_techspec_operation wtop;
+    wtop.author = "bob";
+    wtop.permlink = "bob-techspec";
+    wtop.worker_proposal_author = "alice";
+    wtop.worker_proposal_permlink = "alice-proposal";
+    wtop.specification_cost = ASSET_GOLOS(6);
+    wtop.development_cost = ASSET_GOLOS(60);
+    wtop.payments_interval = 60*60*24*2;
+    wtop.payments_count = 2;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
+
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Approving worker techspec by witnesses");
+
+    generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
+
+    for (auto i = 0; i < STEEMIT_MAJOR_VOTED_WITNESSES; ++i) {
+        const auto name = "approver" + std::to_string(i);
+        worker_techspec_approve_operation wtaop;
+        wtaop.approver = name;
+        wtaop.author = "bob";
+        wtaop.permlink = "bob-techspec";
+        wtaop.state = worker_techspec_approve_state::approve;
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, private_key, wtaop));
+    }
+
+    const auto& wto_post = db->get_comment("bob", string("bob-techspec"));
+    auto wtmo_itr = wtmo_idx.find(wto_post.id);
+    BOOST_CHECK_EQUAL(wtmo_itr->work_beginning_time, time_point_sec::min());
+
+    BOOST_TEST_MESSAGE("-- Assigning worker");
+
+    auto now = db->head_block_time();
+
+    worker_assign_operation op;
+    op.assigner = "bob";
+    op.worker_techspec_author = "bob";
+    op.worker_techspec_permlink = "bob-techspec";
+    op.worker = "alice";
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+
+    wtmo_itr = wtmo_idx.find(wto_post.id);
+
+    BOOST_TEST_MESSAGE("-- Checking work beginning time is updated on assign");
+
+    BOOST_CHECK_EQUAL(wtmo_itr->work_beginning_time, now);
+
+    BOOST_TEST_MESSAGE("-- Unassigning worker");
+
+    op.worker = "";
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+
+    wtmo_itr = wtmo_idx.find(wto_post.id);
+
+    BOOST_TEST_MESSAGE("-- Checking work beginning time is set to zero when unassign");
+
+    BOOST_CHECK_EQUAL(wtmo_itr->work_beginning_time, time_point_sec::min());
+
+    validate_database();
+}
+
 BOOST_AUTO_TEST_SUITE_END()
