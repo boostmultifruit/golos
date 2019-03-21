@@ -13,9 +13,9 @@ namespace golos { namespace chain {
         "You already have voted for this object with this state")
 
 #define WORKER_CHECK_POST_IN_CASHOUT_WINDOW(POST) \
-        GOLOS_CHECK_LOGIC(POST.cashout_time > _db.head_block_time(), \
-            logic_exception::post_should_be_in_cashout_window, \
-            "Post should be in cashout window");
+    GOLOS_CHECK_LOGIC(POST.cashout_time != fc::time_point_sec::maximum(), \
+        logic_exception::post_should_be_in_cashout_window, \
+        "Post should be in cashout window");
 
     void worker_proposal_evaluator::do_apply(const worker_proposal_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_proposal_operation");

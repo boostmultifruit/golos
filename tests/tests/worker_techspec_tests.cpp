@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_validate) {
 BOOST_AUTO_TEST_CASE(worker_techspec_apply_create) {
     BOOST_TEST_MESSAGE("Testing: worker_techspec_apply_create");
 
-    ACTORS((alice)(bob)(carol)(dave)(eve)(fred))
+    ACTORS((alice)(bob)(carol)(dave)(eve)(fred)(greta))
     auto private_key = create_approvers(0, STEEMIT_MAJOR_VOTED_WITNESSES);
     generate_block();
 
@@ -229,6 +229,20 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_create) {
     BOOST_CHECK_EQUAL(wto.worker_result_post, comment_id_type());
     BOOST_CHECK_EQUAL(wto.next_cashout_time, fc::time_point_sec::maximum());
     BOOST_CHECK_EQUAL(wto.finished_payments_count, 0);
+
+    {
+        BOOST_TEST_MESSAGE("-- Check cannot create worker techspec on post outside cashout window");
+
+        comment_create("greta", greta_private_key, "greta-techspec", "", "greta-techspec");
+
+        generate_blocks(db->head_block_time() + STEEMIT_CASHOUT_WINDOW_SECONDS + STEEMIT_BLOCK_INTERVAL, true);
+
+        op.author = "greta";
+        op.permlink = "greta-techspec";
+        op.worker_proposal_author = "alice";
+        op.worker_proposal_permlink = "alice-proposal";
+        GOLOS_CHECK_ERROR_LOGIC(post_should_be_in_cashout_window, greta_private_key, op);
+    }
 
     validate_database();
 }

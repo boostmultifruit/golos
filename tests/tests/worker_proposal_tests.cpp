@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(worker_proposal_validate) {
 BOOST_AUTO_TEST_CASE(worker_proposal_apply_create) {
     BOOST_TEST_MESSAGE("Testing: worker_proposal_apply_create");
 
-    ACTORS((alice)(bob))
+    ACTORS((alice)(bob)(carol))
     generate_block();
 
     signed_transaction tx;
@@ -84,6 +84,18 @@ BOOST_AUTO_TEST_CASE(worker_proposal_apply_create) {
     BOOST_CHECK(wpo);
     BOOST_CHECK(wpo->type == worker_proposal_type::task);
     BOOST_CHECK(wpo->state == worker_proposal_state::created);
+
+    {
+        BOOST_TEST_MESSAGE("-- Check cannot create worker proposal on post outside cashout window");
+
+        comment_create("carol", carol_private_key, "carol-proposal", "", "carol-proposal");
+
+        generate_blocks(db->head_block_time() + STEEMIT_CASHOUT_WINDOW_SECONDS + STEEMIT_BLOCK_INTERVAL, true);
+
+        op.author = "carol";
+        op.permlink = "carol-proposal";
+        GOLOS_CHECK_ERROR_LOGIC(post_should_be_in_cashout_window, carol_private_key, op);
+    }
 
     validate_database();
 }
