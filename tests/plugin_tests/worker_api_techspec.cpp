@@ -179,6 +179,56 @@ BOOST_AUTO_TEST_CASE(worker_techspec_vote) {
     validate_database();
 }
 
+BOOST_AUTO_TEST_CASE(worker_techspec_delete) {
+    BOOST_TEST_MESSAGE("Testing: worker_techspec_delete");
+
+    ACTORS((alice)(bob))
+    generate_block();
+
+    signed_transaction tx;
+
+    const auto& wtmo_idx = db->get_index<worker_techspec_metadata_index, by_post>();
+
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+
+    worker_proposal("alice", alice_private_key, "alice-proposal", worker_proposal_type::task);
+    generate_block();
+
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
+
+    worker_techspec_operation wtop;
+    wtop.author = "bob";
+    wtop.permlink = "bob-techspec";
+    wtop.worker_proposal_author = "alice";
+    wtop.worker_proposal_permlink = "alice-proposal";
+    wtop.specification_cost = ASSET_GOLOS(6);
+    wtop.development_cost = ASSET_GOLOS(60);
+    wtop.payments_interval = 60*60*24*2;
+    wtop.payments_count = 2;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
+    generate_block();
+
+    const auto& wto_post = db->get_comment("bob", string("bob-techspec"));
+    auto wtmo_itr = wtmo_idx.find(wto_post.id);
+    BOOST_CHECK(wtmo_itr != wtmo_idx.end());
+
+    BOOST_TEST_MESSAGE("-- Deleting worker techspec");
+
+    worker_techspec_delete_operation op;
+    op.author = "bob";
+    op.permlink = "bob-techspec";
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+    generate_block();
+
+    wtmo_itr = wtmo_idx.find(wto_post.id);
+
+    BOOST_TEST_MESSAGE("-- Checking worker techspec metadata object is deleted");
+
+    BOOST_CHECK(wtmo_itr == wtmo_idx.end());
+
+    validate_database();
+}
+
 BOOST_AUTO_TEST_CASE(worker_assign) {
     BOOST_TEST_MESSAGE("Testing: worker_assign");
 
