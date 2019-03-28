@@ -277,7 +277,6 @@ namespace golos { namespace chain {
             void clear_expired_proposals();
 
             void clear_worker_techspec_approves(const worker_techspec_object& wto);
-            void clear_worker_payment_approves(const worker_techspec_object& wto);
 
             void close_worker_techspec(const worker_techspec_object& wto, golos::chain::worker_techspec_state closed_state);
 
@@ -455,7 +454,6 @@ namespace golos { namespace chain {
 
             flat_map<worker_techspec_approve_state, int32_t> count_worker_techspec_approves(const comment_id_type& post);
             flat_map<worker_techspec_approve_state, int32_t> count_worker_result_approves(const comment_id_type& post);
-            flat_map<worker_techspec_approve_state, int32_t> count_worker_payment_approves(const comment_id_type& worker_result_post);
 
             asset calculate_worker_techspec_consumption_per_day(const worker_techspec_object& wto);
 
