@@ -264,7 +264,7 @@ namespace golos { namespace chain {
             logic_exception::only_premade_worker_result_can_be_created_for_premade_worker_proposal,
             "Only premade worker result can be created for premade worker proposal");
 
-        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::work,
+        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::work || wto.state == worker_techspec_state::wip,
             logic_exception::worker_result_can_be_created_only_for_techspec_in_work,
             "Worker result can be created only for techspec in work");
 
@@ -318,7 +318,7 @@ namespace golos { namespace chain {
 
         _db.modify(wto, [&](worker_techspec_object& wto) {
             wto.worker_result_post = comment_id_type();
-            wto.state = worker_techspec_state::work;
+            wto.state = worker_techspec_state::wip;
         });
     }
 
