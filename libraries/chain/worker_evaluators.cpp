@@ -388,6 +388,8 @@ namespace golos { namespace chain {
                 gpo.worker_consumption_per_day -= _db.calculate_worker_techspec_consumption_per_day(wto);
             });
 
+            _db.clear_worker_payment_approves(wto);
+
             _db.modify(wto, [&](worker_techspec_object& wto) {
                 if (wto.state == worker_techspec_state::payment) {
                     wto.state = worker_techspec_state::payment_canceled;

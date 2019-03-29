@@ -277,6 +277,7 @@ namespace golos { namespace chain {
             void clear_expired_proposals();
 
             void clear_worker_techspec_approves(const worker_techspec_object& wto);
+            void clear_worker_payment_approves(const worker_techspec_object& wto);
 
             void close_worker_techspec(const worker_techspec_object& wto, golos::chain::worker_techspec_state closed_state);
 
