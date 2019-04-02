@@ -1189,8 +1189,97 @@ BOOST_AUTO_TEST_CASE(worker_assign_apply) {
     validate_database();
 }
 
+BOOST_AUTO_TEST_CASE(worker_techspec_delete_validate) {
+    BOOST_TEST_MESSAGE("Testing: worker_techspec_delete_validate");
+
+    BOOST_TEST_MESSAGE("-- Normal case");
+
+    worker_techspec_delete_operation op;
+    op.author = "bob";
+    op.permlink = "bob-techspec";
+    CHECK_OP_VALID(op);
+
+    BOOST_TEST_MESSAGE("-- Incorrect account or permlink case");
+
+    CHECK_PARAM_INVALID(op, author, "");
+    CHECK_PARAM_INVALID(op, permlink, std::string(STEEMIT_MAX_PERMLINK_LENGTH+1, ' '));
+}
+
 BOOST_AUTO_TEST_CASE(worker_techspec_delete_apply) {
     BOOST_TEST_MESSAGE("Testing: worker_techspec_delete_apply");
+
+    ACTORS((alice)(bob))
+    generate_block();
+
+    signed_transaction tx;
+
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+
+    worker_proposal("alice", alice_private_key, "alice-proposal", worker_proposal_type::task);
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Checking cannot delete techspec with non-existant post");
+
+    worker_techspec_delete_operation op;
+    op.author = "bob";
+    op.permlink = "bob-techspec";
+    GOLOS_CHECK_ERROR_MISSING(comment, make_comment_id("bob", "bob-techspec"), bob_private_key, op);
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Checking cannot delete non-existant techspec");
+
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
+
+    GOLOS_CHECK_ERROR_MISSING(worker_techspec_object, make_comment_id("bob", "bob-techspec"), bob_private_key, op);
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Creating techspec");
+
+    worker_techspec_operation wtop;
+    wtop.author = "bob";
+    wtop.permlink = "bob-techspec";
+    wtop.worker_proposal_author = "alice";
+    wtop.worker_proposal_permlink = "alice-proposal";
+    wtop.specification_cost = ASSET_GOLOS(6);
+    wtop.development_cost = ASSET_GOLOS(60);
+    wtop.payments_interval = 60*60*24;
+    wtop.payments_count = 40;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
+    generate_block();
+
+    {
+        const auto* wto = db->find_worker_techspec(db->get_comment("bob", string("bob-techspec")).id);
+        BOOST_CHECK(wto);
+    }
+
+    BOOST_TEST_MESSAGE("-- Checking cannot delete post with techspec");
+
+    delete_comment_operation dcop;
+    dcop.author = "bob";
+    dcop.permlink = "bob-techspec";
+    GOLOS_CHECK_ERROR_LOGIC(cannot_delete_post_with_worker_techspec, bob_private_key, dcop);
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Deleting techspec");
+
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+    generate_block();
+
+    {
+        const auto* wto = db->find_worker_techspec(db->get_comment("bob", string("bob-techspec")).id);
+        BOOST_CHECK(!wto);
+    }
+
+    BOOST_TEST_MESSAGE("-- Checking can delete post now");
+
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, dcop));
+    generate_block();
+
+    validate_database();
+}
+
+BOOST_AUTO_TEST_CASE(worker_techspec_delete_apply_closing_cases) {
+    BOOST_TEST_MESSAGE("Testing: worker_techspec_delete_apply_closing_cases");
 
     ACTORS((alice)(bob)(carol))
     auto private_key = create_approvers(0, STEEMIT_MAJOR_VOTED_WITNESSES);
@@ -1236,6 +1325,11 @@ BOOST_AUTO_TEST_CASE(worker_techspec_delete_apply) {
         const auto* wto = db->find_worker_techspec(wto_post.id);
         BOOST_CHECK(!wto);
     }
+
+    BOOST_TEST_MESSAGE("-- Trying to delete it again");
+
+    GOLOS_CHECK_ERROR_MISSING(worker_techspec_object, make_comment_id("bob", "bob-techspec"), bob_private_key, op);
+    generate_block();
 
     BOOST_TEST_MESSAGE("-- Creating techspec with 1 approve");
 
@@ -1327,6 +1421,11 @@ BOOST_AUTO_TEST_CASE(worker_techspec_delete_apply) {
         const auto& gpo = db->get_dynamic_global_properties();
         BOOST_CHECK_EQUAL(gpo.worker_consumption_per_day.amount, 0);
     }
+
+    BOOST_TEST_MESSAGE("-- Trying to delete it again");
+
+    GOLOS_CHECK_ERROR_LOGIC(cannot_delete_paying_worker_techspec, carol_private_key, op);
+    generate_block();
 
     validate_database();
 }
