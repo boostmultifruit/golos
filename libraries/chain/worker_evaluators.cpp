@@ -313,7 +313,7 @@ namespace golos { namespace chain {
             "Cannot delete worker result for paying techspec");
 
         _db.modify(wto, [&](worker_techspec_object& wto) {
-            wto.worker_result_post = comment_id_type();
+            wto.worker_result_post = comment_id_type(-1);
             wto.state = worker_techspec_state::wip;
         });
     }
