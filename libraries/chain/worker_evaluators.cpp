@@ -55,10 +55,6 @@ namespace golos { namespace chain {
 
         const auto& wpo = _db.get_worker_proposal(post.id);
 
-        GOLOS_CHECK_LOGIC(wpo.state == worker_proposal_state::created,
-            logic_exception::cannot_delete_worker_proposal_with_approved_techspec,
-            "Cannot delete worker proposal with approved techspec");
-
         const auto& wto_idx = _db.get_index<worker_techspec_index, by_worker_proposal>();
         auto wto_itr = wto_idx.find(wpo.post);
         GOLOS_CHECK_LOGIC(wto_itr == wto_idx.end(),

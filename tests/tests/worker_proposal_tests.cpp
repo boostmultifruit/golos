@@ -166,22 +166,52 @@ BOOST_AUTO_TEST_CASE(worker_proposal_apply_modify) {
     GOLOS_CHECK_ERROR_LOGIC(cannot_edit_worker_proposal_with_approved_techspec, alice_private_key, op);
 }
 
+BOOST_AUTO_TEST_CASE(worker_proposal_delete_validate) {
+    BOOST_TEST_MESSAGE("Testing: worker_proposal_delete_validate");
+
+    BOOST_TEST_MESSAGE("-- Normal case");
+
+    worker_proposal_delete_operation op;
+    op.author = "alice";
+    op.permlink = "alice-techspec";
+    CHECK_OP_VALID(op);
+
+    BOOST_TEST_MESSAGE("-- Incorrect account or permlink case");
+
+    CHECK_PARAM_INVALID(op, author, "");
+    CHECK_PARAM_INVALID(op, permlink, std::string(STEEMIT_MAX_PERMLINK_LENGTH+1, ' '));
+}
+
 BOOST_AUTO_TEST_CASE(worker_proposal_delete_apply) {
     BOOST_TEST_MESSAGE("Testing: worker_proposal_delete_apply");
 
-    ACTORS((alice))
+    ACTORS((alice)(bob)(carol))
     generate_block();
 
     signed_transaction tx;
 
+    BOOST_TEST_MESSAGE("-- Checking cannot delete worker proposal with not-exist post");
+
+    worker_proposal_delete_operation op;
+    op.author = "alice";
+    op.permlink = "i-am-post";
+    GOLOS_CHECK_ERROR_MISSING(comment, make_comment_id("alice", "i-am-post"), alice_private_key, op);
+
+    BOOST_TEST_MESSAGE("-- Checking cannot delete not-exist proposal");
+
     comment_create("alice", alice_private_key, "i-am-post", "", "i-am-post");
+
+    GOLOS_CHECK_ERROR_MISSING(worker_proposal_object, make_comment_id("alice", "i-am-post"), alice_private_key, op);
+
+    BOOST_TEST_MESSAGE("-- Creating worker proposal");
 
     worker_proposal("alice", alice_private_key, "i-am-post", worker_proposal_type::task);
     generate_block();
 
-    const auto& wpo_post = db->get_comment("alice", string("i-am-post"));
-    const auto* wpo = db->find_worker_proposal(wpo_post.id);
-    BOOST_CHECK(wpo);
+    {
+        const auto* wpo = db->find_worker_proposal(db->get_comment("alice", string("i-am-post")).id);
+        BOOST_CHECK(wpo);
+    }
 
     BOOST_TEST_MESSAGE("-- Checking cannot delete post with worker proposal");
 
@@ -189,23 +219,52 @@ BOOST_AUTO_TEST_CASE(worker_proposal_delete_apply) {
     dcop.author = "alice";
     dcop.permlink = "i-am-post";
     GOLOS_CHECK_ERROR_LOGIC(cannot_delete_post_with_worker_proposal, alice_private_key, dcop);
-    generate_block();
 
     BOOST_TEST_MESSAGE("-- Deleting worker proposal");
 
-    worker_proposal_delete_operation op;
-    op.author = "alice";
-    op.permlink = "i-am-post";
     BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, alice_private_key, op));
     generate_block();
 
-    const auto* wpo_del = db->find_worker_proposal(wpo_post.id);
-    BOOST_CHECK(!wpo_del);
+    {
+        const auto* wpo = db->find_worker_proposal(db->get_comment("alice", string("i-am-post")).id);
+        BOOST_CHECK(!wpo);
+    }
+
+    BOOST_TEST_MESSAGE("-- Checking cannot delete deleted worker proposal");
+
+    GOLOS_CHECK_ERROR_MISSING(worker_proposal_object, make_comment_id("alice", "i-am-post"), alice_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Checking can delete post now");
 
     BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, alice_private_key, dcop));
     generate_block();
+
+    {
+        BOOST_TEST_MESSAGE("-- Checking cannot delete worker proposal with techspec");
+
+        comment_create("bob", bob_private_key, "i-am-post", "", "i-am-post");
+
+        worker_proposal("bob", bob_private_key, "i-am-post", worker_proposal_type::task);
+        generate_block();
+
+        comment_create("carol", carol_private_key, "carol-techspec", "", "carol-techspec");
+
+        worker_techspec_operation wtop;
+        wtop.author = "carol";
+        wtop.permlink = "carol-techspec";
+        wtop.worker_proposal_author = "bob";
+        wtop.worker_proposal_permlink = "i-am-post";
+        wtop.specification_cost = ASSET_GOLOS(6);
+        wtop.development_cost = ASSET_GOLOS(60);
+        wtop.payments_interval = 60*60*24*2;
+        wtop.payments_count = 2;
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, carol_private_key, wtop));
+        generate_block();
+
+        op.author = "bob";
+        op.permlink = "i-am-post";
+        GOLOS_CHECK_ERROR_LOGIC(cannot_delete_worker_proposal_with_techspecs, bob_private_key, op);
+    }
 
     validate_database();
 }
