@@ -226,7 +226,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_create) {
     BOOST_CHECK_EQUAL(wto.payments_interval, op.payments_interval);
 
     BOOST_CHECK_EQUAL(wto.worker, account_name_type());
-    BOOST_CHECK_EQUAL(wto.worker_result_post, comment_id_type());
+    BOOST_CHECK_EQUAL(wto.worker_result_post, comment_id_type(-1));
     BOOST_CHECK_EQUAL(wto.next_cashout_time, fc::time_point_sec::maximum());
     BOOST_CHECK_EQUAL(wto.finished_payments_count, 0);
 

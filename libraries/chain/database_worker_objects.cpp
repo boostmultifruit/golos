@@ -169,7 +169,7 @@ namespace golos { namespace chain {
             if (wpo.type == worker_proposal_type::task) {
                 modify(wpo, [&](worker_proposal_object& wpo) {
                     wpo.state = worker_proposal_state::created;
-                    wpo.approved_techspec_post = comment_id_type();
+                    wpo.approved_techspec_post = comment_id_type(-1);
                 });
             }
 

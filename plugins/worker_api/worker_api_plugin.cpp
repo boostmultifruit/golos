@@ -358,7 +358,7 @@ DEFINE_API(worker_api_plugin, get_worker_proposals) {
             return false;
         }
         wpo_api.fill_worker_proposal(wpo);
-        if (fill_approved_techspec_posts && wpo.approved_techspec_post != comment_id_type()) {
+        if (fill_approved_techspec_posts && wpo.approved_techspec_post != comment_id_type(-1)) {
             const auto post = my->_db.get_comment(wpo.approved_techspec_post);
             wpo_api.approved_techspec_post = my->helper->create_comment_api_object(post);
         }
@@ -405,7 +405,7 @@ DEFINE_API(worker_api_plugin, get_worker_techspecs) {
                 return false;
             }
         }
-        if (fill_worker_result_posts && wto.worker_result_post != comment_id_type()) {
+        if (fill_worker_result_posts && wto.worker_result_post != comment_id_type(-1)) {
             const auto post = my->_db.get_comment(wto.worker_result_post);
             wto_api.worker_result_post = my->helper->create_comment_api_object(post);
         }

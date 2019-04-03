@@ -27,7 +27,7 @@ namespace golos { namespace chain {
         comment_id_type post;
         worker_proposal_type type;
         worker_proposal_state state;
-        comment_id_type approved_techspec_post;
+        comment_id_type approved_techspec_post = comment_id_type(-1);
     };
 
     enum class worker_techspec_state {
@@ -60,7 +60,7 @@ namespace golos { namespace chain {
         asset specification_cost;
         asset development_cost;
         account_name_type worker;
-        comment_id_type worker_result_post;
+        comment_id_type worker_result_post = comment_id_type(-1);
         uint16_t payments_count;
         uint32_t payments_interval;
         time_point_sec next_cashout_time = time_point_sec::maximum();
