@@ -209,18 +209,37 @@ namespace golos { namespace chain {
 
         const auto now = head_block_time();
 
-        const auto& idx = get_index<worker_techspec_index>().indices().get<by_post>();
+        const auto& idx = get_index<worker_techspec_index, by_post>();
         for (auto itr = idx.begin(); itr != idx.end(); itr++) {
+            if (itr->state != worker_techspec_state::created) {
+                continue;
+            }
+
             const auto& wto_post = get_comment(itr->post);
             if (wto_post.created + mprops.worker_techspec_approve_term_sec > now) {
                 break;
             }
 
-            if (itr->state != worker_techspec_state::created) {
+            close_worker_techspec(*itr, worker_techspec_state::closed_by_expiration);
+
+            push_virtual_operation(techspec_expired_operation(wto_post.author, to_string(wto_post.permlink), false));
+        }
+
+        const auto& result_idx = get_index<worker_techspec_index, by_worker_result>();
+        for (auto result_itr = result_idx.begin(); result_itr != result_idx.end(); result_itr++) {
+            if (result_itr->state != worker_techspec_state::complete) {
                 continue;
             }
 
-            close_worker_techspec(*itr, worker_techspec_state::closed_by_witnesses);
+            const auto& result_post = get_comment(result_itr->worker_result_post);
+            if (result_post.created + mprops.worker_result_approve_term_sec > now) {
+                break;
+            }
+
+            close_worker_techspec(*result_itr, worker_techspec_state::closed_by_expiration);
+
+            const auto& wto_post = get_comment(result_itr->post);
+            push_virtual_operation(techspec_expired_operation(wto_post.author, to_string(wto_post.permlink), true));
         }
     }
 
