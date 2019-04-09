@@ -451,6 +451,63 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve_validate) {
     CHECK_PARAM_INVALID(op, state, worker_techspec_approve_state::_size);
 }
 
+BOOST_AUTO_TEST_CASE(worker_techspec_approve_checking_funds) {
+    BOOST_TEST_MESSAGE("Testing: worker_techspec_approve_checking_funds");
+
+    ACTORS((alice)(bob))
+    auto private_key = create_approvers(0, 1);
+    generate_block();
+
+    signed_transaction tx;
+
+    BOOST_TEST_MESSAGE("-- Creating worker proposal");
+
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+    worker_proposal("alice", alice_private_key, "alice-proposal", worker_proposal_type::task);
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Measuring revenue per block");
+
+    const auto before = db->get_dynamic_global_properties().total_worker_fund_steem;
+    generate_blocks(1);
+    const auto revenue = db->get_dynamic_global_properties().total_worker_fund_steem - before;
+
+    BOOST_TEST_MESSAGE("-- Creating techspec with cost a bit larger than revenue");
+
+    generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
+
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
+
+    worker_techspec_operation wtop;
+    wtop.author = "bob";
+    wtop.permlink = "bob-techspec";
+    wtop.worker_proposal_author = "alice";
+    wtop.worker_proposal_permlink = "alice-proposal";
+    wtop.specification_cost = db->get_dynamic_global_properties().total_worker_fund_steem;
+    wtop.development_cost = revenue * (60*60*37*2 / STEEMIT_BLOCK_INTERVAL + 1);
+    wtop.payments_interval = 60*60*37;
+    wtop.payments_count = 2;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
+
+    BOOST_TEST_MESSAGE("-- Checking cannot approve");
+
+    worker_techspec_approve_operation op;
+    op.approver = "approver0";
+    op.author = "bob";
+    op.permlink = "bob-techspec";
+    op.state = worker_techspec_approve_state::approve;
+    GOLOS_CHECK_ERROR_LOGIC(insufficient_funds_to_approve_worker_techspec, private_key, op);
+
+    BOOST_TEST_MESSAGE("-- Editing it to be equal to revenue");
+
+    wtop.development_cost = revenue * (60*60*36*2 / STEEMIT_BLOCK_INTERVAL);
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
+
+    BOOST_TEST_MESSAGE("-- Checking can approve now");
+
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, private_key, op));
+}
+
 BOOST_AUTO_TEST_CASE(worker_techspec_approve_apply_combinations) {
     BOOST_TEST_MESSAGE("Testing: worker_techspec_approve_apply_combinations");
 
