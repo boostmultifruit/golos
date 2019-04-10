@@ -42,6 +42,7 @@ file(GLOB PLUGIN_TESTS
     "plugin_tests/follow.cpp"
     "plugin_tests/worker_api_proposal.cpp"
     "plugin_tests/worker_api_techspec.cpp"
+    "plugin_tests/worker_api_payment.cpp"
     "plugin_tests/private_message.cpp")
 add_executable(plugin_test ${PLUGIN_TESTS} ${COMMON_SOURCES})
 target_link_libraries(plugin_test
