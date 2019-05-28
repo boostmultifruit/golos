@@ -29,7 +29,9 @@ namespace golos { namespace chain {
         const auto* wpo = _db.find_worker_proposal(post.id);
 
         if (wpo) {
-            GOLOS_CHECK_LOGIC(wpo->state == worker_proposal_state::created,
+            const auto& wto_idx = _db.get_index<worker_techspec_index, by_worker_proposal>();
+            auto wto_itr = wto_idx.find(wpo->post);
+            GOLOS_CHECK_LOGIC(wto_itr == wto_idx.end(),
                 logic_exception::cannot_edit_worker_proposal_with_techspecs,
                 "Cannot edit worker proposal with techspecs");
 
