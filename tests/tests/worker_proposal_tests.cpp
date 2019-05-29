@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE(worker_proposal_apply_modify) {
     BOOST_CHECK(wpo_mod);
     BOOST_CHECK(wpo_mod->type == worker_proposal_type::task);
 
-    BOOST_TEST_MESSAGE("-- Check cannot modify worker proposal with approved techspec");
+    BOOST_TEST_MESSAGE("-- Check cannot modify worker proposal with techspec");
 
     comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
 
@@ -146,21 +146,6 @@ BOOST_AUTO_TEST_CASE(worker_proposal_apply_modify) {
     wtop.payments_interval = 60*60*24*2;
     wtop.payments_count = 2;
     BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
-
-    auto private_key = create_approvers(0, STEEMIT_MAJOR_VOTED_WITNESSES);
-
-    generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
-
-    for (auto i = 0; i < STEEMIT_MAJOR_VOTED_WITNESSES; ++i) {
-        const auto name = "approver" + std::to_string(i);
-        worker_techspec_approve_operation wtaop;
-        wtaop.approver = name;
-        wtaop.author = "bob";
-        wtaop.permlink = "bob-techspec";
-        wtaop.state = worker_techspec_approve_state::approve;
-        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, private_key, wtaop));
-        generate_block();
-    }
 
     op.type = worker_proposal_type::task;
     GOLOS_CHECK_ERROR_LOGIC(cannot_edit_worker_proposal_with_techspecs, alice_private_key, op);
