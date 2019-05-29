@@ -20,6 +20,7 @@ namespace golos { namespace chain {
             reward_fund_ = gpo.total_reward_fund_steem;
             vesting_shares_ = gpo.total_vesting_shares;
             vesting_fund_ = gpo.total_vesting_fund_steem;
+            worker_fund_ = gpo.total_worker_fund_steem;
 
             process_funds();
         }
@@ -38,6 +39,10 @@ namespace golos { namespace chain {
 
         const asset& vesting_fund() const {
             return vesting_fund_;
+        }
+
+        const asset& worker_fund() const {
+            return worker_fund_;
         }
 
         price get_vesting_share_price() const {
@@ -87,6 +92,8 @@ namespace golos { namespace chain {
 
                 auto witness_to_worker = witness_reward * uint16_t(GOLOS_WORKER_FROM_WITNESS_FUND_PERCENT) / STEEMIT_100_PERCENT;
                 witness_reward -= witness_to_worker;
+
+                worker_fund_ += asset(content_to_worker + vesting_to_worker + witness_to_worker, STEEM_SYMBOL);
             }
 
             auto witness_normalize = db_.get_witness_schedule_object().witness_pay_normalization_factor;
@@ -103,6 +110,7 @@ namespace golos { namespace chain {
         asset reward_fund_;
         asset vesting_shares_;
         asset vesting_fund_;
+        asset worker_fund_;
     };
 
     class comment_reward final {

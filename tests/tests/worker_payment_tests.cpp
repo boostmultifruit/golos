@@ -2,6 +2,7 @@
 
 #include "worker_fixture.hpp"
 #include "helpers.hpp"
+#include "comment_reward.hpp"
 
 #include <golos/protocol/worker_operations.hpp>
 #include <golos/chain/worker_objects.hpp>
@@ -15,14 +16,12 @@ BOOST_FIXTURE_TEST_SUITE(worker_payment_tests, worker_fixture)
 BOOST_AUTO_TEST_CASE(worker_authorities) {
     BOOST_TEST_MESSAGE("Testing: worker_authorities");
 
-    {
-        worker_payment_approve_operation op;
-        op.approver = "cyberfounder";
-        op.worker_techspec_author = "bob";
-        op.worker_techspec_permlink = "bob-techspec";
-        op.state = worker_techspec_approve_state::approve;
-        CHECK_OP_AUTHS(op, account_name_set(), account_name_set(), account_name_set({"cyberfounder"}));
-    }
+    worker_payment_approve_operation op;
+    op.approver = "cyberfounder";
+    op.worker_techspec_author = "bob";
+    op.worker_techspec_permlink = "bob-techspec";
+    op.state = worker_techspec_approve_state::approve;
+    CHECK_OP_AUTHS(op, account_name_set(), account_name_set(), account_name_set({"cyberfounder"}));
 }
 
 BOOST_AUTO_TEST_CASE(worker_payment_approve_validate) {
@@ -344,6 +343,260 @@ BOOST_AUTO_TEST_CASE(worker_payment_disapprove) {
 
         const auto& gpo = db->get_dynamic_global_properties();
         BOOST_CHECK_EQUAL(gpo.worker_consumption_per_day.amount, 0);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(worker_fund) {
+    BOOST_TEST_MESSAGE("Testing: worker_fund");
+
+    generate_block();
+
+    auto old_fund = db->get_dynamic_global_properties().total_worker_fund_steem;
+
+    comment_fund fund(*db);
+
+    generate_block();
+
+    const auto& gpo = db->get_dynamic_global_properties();
+    BOOST_CHECK_EQUAL(gpo.total_worker_fund_steem, fund.worker_fund());
+    BOOST_CHECK_EQUAL(gpo.worker_revenue_per_day, (gpo.total_worker_fund_steem - old_fund) * STEEMIT_BLOCKS_PER_DAY);
+}
+
+BOOST_AUTO_TEST_CASE(worker_cashout) {
+    BOOST_TEST_MESSAGE("Testing: worker_cashout");
+
+    ACTORS((alice)(bob)(carol))
+    auto private_key = create_approvers(0, STEEMIT_MAJOR_VOTED_WITNESSES);
+    generate_block();
+
+    signed_transaction tx;
+
+    BOOST_TEST_MESSAGE("-- Creating techspec and approving payments");
+
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+
+    worker_proposal("alice", alice_private_key, "alice-proposal", worker_proposal_type::task);
+    generate_block();
+
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
+
+    worker_techspec_operation wtop;
+    wtop.author = "bob";
+    wtop.permlink = "bob-techspec";
+    wtop.worker_proposal_author = "alice";
+    wtop.worker_proposal_permlink = "alice-proposal";
+    wtop.specification_cost = ASSET_GOLOS(4);
+    wtop.development_cost = ASSET_GOLOS(12);
+    wtop.payments_interval = 60*60*24;
+    wtop.payments_count = 4;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
+    generate_block();
+
+    generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
+
+    for (auto i = 0; i < STEEMIT_MAJOR_VOTED_WITNESSES; ++i) {
+        worker_techspec_approve("approver" + std::to_string(i), private_key,
+            "bob", "bob-techspec", worker_techspec_approve_state::approve);
+        generate_block();
+    }
+
+    worker_assign("bob", bob_private_key, "bob", "bob-techspec", "carol");
+
+    comment_create("bob", bob_private_key, "bob-result", "", "bob-result");
+    worker_result("bob", bob_private_key, "bob-result", "bob-techspec");
+
+    for (auto i = 0; i < STEEMIT_MAJOR_VOTED_WITNESSES; ++i) {
+        worker_payment_approve("approver" + std::to_string(i), private_key,
+            "bob", "bob-techspec", worker_techspec_approve_state::approve);
+        generate_block();
+    }
+
+    BOOST_TEST_MESSAGE("-- Checking cashout");
+
+    auto init_fund = db->get_dynamic_global_properties().total_worker_fund_steem;
+    auto init_block_num = db->head_block_num();
+
+    auto* wto = db->find_worker_techspec(db->get_comment("bob", string("bob-techspec")).id);
+    do
+    {
+        auto next_cashout_time = wto->next_cashout_time;
+        auto finished_payments_count = wto->finished_payments_count;
+
+        auto author_balance = get_balance("bob");
+        auto worker_balance = get_balance("carol");
+
+        auto fund = db->get_dynamic_global_properties().total_worker_fund_steem;
+        auto block_num = db->head_block_num();
+
+        BOOST_TEST_MESSAGE("-- Cashout");
+
+        // Generating blocks without skipping to save revenue
+        while (db->get_dynamic_global_properties().total_worker_fund_steem < wtop.specification_cost + wtop.development_cost) {
+            generate_block();
+        }
+
+        generate_blocks(next_cashout_time - STEEMIT_BLOCK_INTERVAL, true); // Here is no revenue - blocks skipping
+        generate_block();
+
+        BOOST_TEST_MESSAGE("-- Checking");
+
+        wto = db->find_worker_techspec(db->get_comment("bob", string("bob-techspec")).id);
+
+        BOOST_TEST_MESSAGE("---- finished_payments_count");
+
+        BOOST_CHECK_EQUAL(wto->finished_payments_count, finished_payments_count + 1);
+
+        BOOST_TEST_MESSAGE("---- next_cashout_time");
+
+        if (wto->finished_payments_count < wto->payments_count) {
+            BOOST_CHECK_EQUAL(wto->next_cashout_time, next_cashout_time + wtop.payments_interval);
+        }
+
+        BOOST_TEST_MESSAGE("---- worker fund");
+
+        if (wto->finished_payments_count < wto->payments_count) {
+            auto reward = (wtop.specification_cost + wtop.development_cost) / wtop.payments_count;
+            const auto& gpo = db->get_dynamic_global_properties();
+            auto revenue = gpo.worker_revenue_per_day * (db->head_block_num() - block_num) / STEEMIT_BLOCKS_PER_DAY;
+            BOOST_CHECK_EQUAL(gpo.total_worker_fund_steem, fund - reward + revenue);
+        }
+
+        BOOST_TEST_MESSAGE("---- balances");
+
+        if (wto->finished_payments_count < wto->payments_count) {
+            BOOST_CHECK_EQUAL(get_balance("bob"), author_balance + (wtop.specification_cost / wtop.payments_count));
+            BOOST_CHECK_EQUAL(get_balance("carol"), worker_balance + (wtop.development_cost / wtop.payments_count));
+        }
+
+        BOOST_TEST_MESSAGE("---- virtual operations");
+
+        auto trop = get_last_operations<techspec_reward_operation>(1)[0];
+        BOOST_CHECK_EQUAL(trop.author, wtop.author);
+        BOOST_CHECK_EQUAL(trop.permlink, wtop.permlink);
+        BOOST_CHECK_EQUAL(trop.reward, get_balance("bob") - author_balance);
+
+        auto wrop = get_last_operations<worker_reward_operation>(1)[0];
+        BOOST_CHECK_EQUAL(wrop.worker, "carol");
+        BOOST_CHECK_EQUAL(wrop.worker_techspec_author, wtop.author);
+        BOOST_CHECK_EQUAL(wrop.worker_techspec_permlink, wtop.permlink);
+        BOOST_CHECK_EQUAL(wrop.reward, get_balance("carol") - worker_balance);
+
+        BOOST_TEST_MESSAGE("---- state");
+
+        if (wto->finished_payments_count < wto->payments_count) {
+            BOOST_CHECK(wto->state == worker_techspec_state::payment);
+        }
+
+        BOOST_TEST_MESSAGE("---- consumption");
+
+        if (wto->finished_payments_count < wto->payments_count) {
+            BOOST_CHECK_NE(db->get_dynamic_global_properties().worker_consumption_per_day.amount, 0);
+        }
+    } while (wto->next_cashout_time != time_point_sec::maximum());
+
+    BOOST_TEST_MESSAGE("-- Final checking");
+
+    BOOST_TEST_MESSAGE("---- finished_payments_count");
+
+    BOOST_CHECK_EQUAL(wto->finished_payments_count, wto->payments_count);
+
+    BOOST_TEST_MESSAGE("---- worker fund");
+
+    auto cost = wto->specification_cost + wto->development_cost;
+    const auto& gpo = db->get_dynamic_global_properties();
+    auto revenue = gpo.worker_revenue_per_day * (db->head_block_num() - init_block_num) / STEEMIT_BLOCKS_PER_DAY;
+    BOOST_CHECK_EQUAL(gpo.total_worker_fund_steem, init_fund - cost + revenue);
+
+    BOOST_TEST_MESSAGE("---- balances");
+
+    BOOST_CHECK_EQUAL(get_balance("bob"), wto->specification_cost);
+    BOOST_CHECK_EQUAL(get_balance("carol"), wto->development_cost);
+
+    BOOST_TEST_MESSAGE("---- state");
+
+    BOOST_CHECK(wto->state == worker_techspec_state::payment_complete);
+
+    BOOST_TEST_MESSAGE("---- consumption");
+
+    BOOST_CHECK_EQUAL(db->get_dynamic_global_properties().worker_consumption_per_day.amount, 0);
+}
+
+BOOST_AUTO_TEST_CASE(worker_cashout_waiting_funds) {
+    BOOST_TEST_MESSAGE("Testing: worker_cashout_waiting_funds");
+
+    ACTORS((alice)(bob)(carol))
+    auto private_key = create_approvers(0, STEEMIT_MAJOR_VOTED_WITNESSES);
+    generate_block();
+
+    signed_transaction tx;
+
+    BOOST_TEST_MESSAGE("-- Creating techspec and approving payments");
+
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+
+    worker_proposal("alice", alice_private_key, "alice-proposal", worker_proposal_type::task);
+    generate_block();
+
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
+
+    worker_techspec_operation wtop;
+    wtop.author = "bob";
+    wtop.permlink = "bob-techspec";
+    wtop.worker_proposal_author = "alice";
+    wtop.worker_proposal_permlink = "alice-proposal";
+    wtop.specification_cost = ASSET_GOLOS(4);
+    wtop.development_cost = ASSET_GOLOS(12);
+    wtop.payments_interval = 60*60*24;
+    wtop.payments_count = 8;
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
+    generate_block();
+
+    generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
+
+    for (auto i = 0; i < STEEMIT_MAJOR_VOTED_WITNESSES; ++i) {
+        worker_techspec_approve("approver" + std::to_string(i), private_key,
+            "bob", "bob-techspec", worker_techspec_approve_state::approve);
+        generate_block();
+    }
+
+    worker_assign("bob", bob_private_key, "bob", "bob-techspec", "carol");
+
+    comment_create("bob", bob_private_key, "bob-result", "", "bob-result");
+    worker_result("bob", bob_private_key, "bob-result", "bob-techspec");
+
+    for (auto i = 0; i < STEEMIT_MAJOR_VOTED_WITNESSES; ++i) {
+        worker_payment_approve("approver" + std::to_string(i), private_key,
+            "bob", "bob-techspec", worker_techspec_approve_state::approve);
+        generate_block();
+    }
+
+    BOOST_TEST_MESSAGE("-- Waiting for cashout");
+
+    {
+        const auto& wto = db->get_worker_techspec(db->get_comment("bob", string("bob-techspec")).id);
+        generate_blocks(wto.next_cashout_time - STEEMIT_BLOCK_INTERVAL, true); // It skips blocks - no revenue
+        generate_block();
+    }
+
+    BOOST_TEST_MESSAGE("-- Check cashout skipped");
+
+    {
+        const auto& wto = db->get_worker_techspec(db->get_comment("bob", string("bob-techspec")).id);
+        BOOST_CHECK_EQUAL(wto.finished_payments_count, 0);
+    }
+
+    BOOST_TEST_MESSAGE("-- Calculating required amount and generating blocks to save it");
+
+    auto cost = wtop.specification_cost + wtop.development_cost;
+    auto lack = cost - db->get_dynamic_global_properties().total_worker_fund_steem;
+    auto revenue = db->get_dynamic_global_properties().worker_revenue_per_day / STEEMIT_BLOCKS_PER_DAY;
+    generate_blocks(lack.amount.value / revenue.amount.value + 1);
+
+    BOOST_TEST_MESSAGE("-- Check cashout proceed");
+
+    {
+        const auto& wto = db->get_worker_techspec(db->get_comment("bob", string("bob-techspec")).id);
+        BOOST_CHECK_EQUAL(wto.finished_payments_count, 1);
     }
 }
 
