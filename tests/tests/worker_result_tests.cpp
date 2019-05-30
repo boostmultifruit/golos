@@ -149,6 +149,22 @@ BOOST_AUTO_TEST_CASE(worker_result_apply) {
     BOOST_TEST_MESSAGE("-- Create result on post already used for result");
 
     GOLOS_CHECK_ERROR_LOGIC(this_post_already_used_as_worker_result, bob_private_key, op);
+
+    BOOST_TEST_MESSAGE("-- Create result after WIP");
+
+    worker_result_delete_operation wrdop;
+    wrdop.author = "bob";
+    wrdop.permlink = "bob-result";
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wrdop));
+
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+    generate_block();
+
+    {
+        const auto& worker_result_post = db->get_comment("bob", string("bob-result"));
+        const auto& wto = db->get_worker_result(worker_result_post.id);
+        BOOST_CHECK(wto.state == worker_techspec_state::complete);
+    }
 }
 
 BOOST_AUTO_TEST_CASE(worker_result_delete_validate) {
@@ -241,6 +257,8 @@ BOOST_AUTO_TEST_CASE(worker_result_delete_apply) {
     {
         const auto* worker_result = db->find_worker_result(db->get_comment("bob", string("bob-result")).id);
         BOOST_CHECK(!worker_result);
+        const auto& wto = db->get_worker_techspec(db->get_comment("bob", string("bob-techspec")).id);
+        BOOST_CHECK(wto.state == worker_techspec_state::wip);
     }
 
     BOOST_TEST_MESSAGE("-- Checking cannot delete deleted result");
