@@ -256,6 +256,8 @@ namespace golos { namespace chain {
             logic_exception::worker_result_can_be_created_only_on_post,
             "Worker result can be created only on post");
 
+        WORKER_CHECK_POST_IN_CASHOUT_WINDOW(post);
+
         const auto* wto_result = _db.find_worker_result(post.id);
         GOLOS_CHECK_LOGIC(!wto_result,
             logic_exception::this_post_already_used_as_worker_result,
