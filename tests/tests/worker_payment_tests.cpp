@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(worker_payment_approve_apply) {
     BOOST_TEST_MESSAGE("-- Approving payment by witness not in TOP-19 case");
 
     op.approver = "approver0";
-    GOLOS_CHECK_ERROR_LOGIC(approver_of_payment_should_be_in_top19_of_witnesses, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(approver_is_not_top19_witness, private_key, op);
 
     generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
 

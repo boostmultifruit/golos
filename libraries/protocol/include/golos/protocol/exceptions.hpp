@@ -338,33 +338,27 @@ namespace golos {
             witness_must_be_created_before_minning,
 
             // workers
-            worker_proposal_can_be_created_only_on_post,
+            post_is_already_used,
+            post_is_not_root,
             post_should_be_in_cashout_window,
-            cannot_edit_worker_proposal_with_techspecs,
-            cannot_delete_worker_proposal_with_techspecs,
-            worker_techspec_can_be_created_only_on_post,
-            worker_techspec_can_be_created_only_for_existing_proposal,
+            proposal_has_techspecs,
+            you_are_not_proposal_author,
+            you_are_not_techspec_author_or_worker,
+            approver_is_not_top19_witness,
+            insufficient_funds_to_approve,
+            worker_not_set,
+            techspec_already_used_for_another_proposal,
+            // TODO: state exceptions to be separated, no "or" in exceptions
             this_worker_proposal_already_has_approved_techspec,
-            premade_techspec_can_be_created_only_by_proposal_author,
-            premade_techspec_requires_worker_set_on_creation,
-            this_worker_techspec_is_already_used_for_another_worker_proposal,
             cannot_delete_paying_worker_techspec,
-            approver_of_techspec_should_be_in_top19_of_witnesses,
             techspec_is_already_approved_or_closed,
-            worker_result_can_be_created_only_on_post,
             worker_result_can_be_created_only_for_techspec_in_work,
             cannot_delete_worker_result_for_paying_techspec,
-            this_post_already_used_as_worker_result,
-            approver_of_payment_should_be_in_top19_of_witnesses,
             worker_techspec_should_be_in_work_complete_or_paying,
             techspec_cannot_be_approved_when_paying_or_not_finished,
             worker_techspec_already_has_final_result,
             worker_can_be_assigned_only_to_proposal_with_approved_techspec,
             cannot_unassign_worker_from_finished_or_not_started_work,
-            worker_can_be_unassigned_only_by_techspec_author_or_himself,
-            insufficient_funds_to_approve_worker_techspec,
-            you_already_have_voted_for_this_object_with_this_state,
-            this_post_already_used_as_worker_techspec,
 
             // custom operations
             inner_authorities_does_not_match_outer,
@@ -636,33 +630,27 @@ FC_REFLECT_ENUM(golos::logic_exception::error_types,
         (witness_must_be_created_before_minning)
 
         // workers
-        (worker_proposal_can_be_created_only_on_post)
+        (post_is_already_used)
+        (post_is_not_root)
         (post_should_be_in_cashout_window)
-        (cannot_edit_worker_proposal_with_techspecs)
-        (cannot_delete_worker_proposal_with_techspecs)
-        (worker_techspec_can_be_created_only_on_post)
-        (worker_techspec_can_be_created_only_for_existing_proposal)
+        (proposal_has_techspecs)
+        (you_are_not_proposal_author)
+        (you_are_not_techspec_author_or_worker)
+        (approver_is_not_top19_witness)
+        (insufficient_funds_to_approve)
+        (worker_not_set)
+        (techspec_already_used_for_another_proposal)
+
         (this_worker_proposal_already_has_approved_techspec)
-        (premade_techspec_can_be_created_only_by_proposal_author)
-        (premade_techspec_requires_worker_set_on_creation)
-        (this_worker_techspec_is_already_used_for_another_worker_proposal)
         (cannot_delete_paying_worker_techspec)
-        (approver_of_techspec_should_be_in_top19_of_witnesses)
         (techspec_is_already_approved_or_closed)
-        (worker_result_can_be_created_only_on_post)
         (worker_result_can_be_created_only_for_techspec_in_work)
         (cannot_delete_worker_result_for_paying_techspec)
-        (this_post_already_used_as_worker_result)
-        (approver_of_payment_should_be_in_top19_of_witnesses)
         (worker_techspec_should_be_in_work_complete_or_paying)
         (techspec_cannot_be_approved_when_paying_or_not_finished)
         (worker_techspec_already_has_final_result)
         (worker_can_be_assigned_only_to_proposal_with_approved_techspec)
         (cannot_unassign_worker_from_finished_or_not_started_work)
-        (worker_can_be_unassigned_only_by_techspec_author_or_himself)
-        (insufficient_funds_to_approve_worker_techspec)
-        (you_already_have_voted_for_this_object_with_this_state)
-        (this_post_already_used_as_worker_techspec)
 
         // custom operations
         (inner_authorities_does_not_match_outer)
