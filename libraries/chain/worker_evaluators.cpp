@@ -27,6 +27,20 @@ namespace golos { namespace chain {
         logic_exception::proposal_has_techspecs, \
         MSG);
 
+#define PROPOSAL_STATE worker_proposal_state
+
+#define CHECK_PROPOSAL_STATE(EXPR, MSG) \
+    GOLOS_CHECK_LOGIC(EXPR, \
+        logic_exception::incorrect_proposal_state, \
+        MSG)
+
+#define TECHSPEC_STATE worker_techspec_state
+
+#define CHECK_TECHSPEC_STATE(EXPR, MSG) \
+    GOLOS_CHECK_LOGIC(EXPR, \
+        logic_exception::incorrect_techspec_state, \
+        MSG)
+
 #define WORKER_CHECK_APPROVER_WITNESS(APPROVER) \
     auto approver_witness = _db.get_witness(APPROVER); \
     GOLOS_CHECK_LOGIC(approver_witness.schedule == witness_object::top19, \
@@ -76,9 +90,7 @@ namespace golos { namespace chain {
         const auto& wpo_post = _db.get_comment(o.worker_proposal_author, o.worker_proposal_permlink);
         const auto& wpo = _db.get_worker_proposal(wpo_post.id);
 
-        GOLOS_CHECK_LOGIC(wpo.state == worker_proposal_state::created,
-            logic_exception::this_worker_proposal_already_has_approved_techspec,
-            "This worker proposal already has approved techspec");
+        CHECK_PROPOSAL_STATE(wpo.state < PROPOSAL_STATE::techspec, "Proposal already has approved techspec");
 
         if (wpo.type == worker_proposal_type::premade_work) {
             GOLOS_CHECK_LOGIC(o.worker.size(),
@@ -136,9 +148,8 @@ namespace golos { namespace chain {
         const auto& post = _db.get_comment(o.author, o.permlink);
         const auto& wto = _db.get_worker_techspec(post.id);
 
-        GOLOS_CHECK_LOGIC(wto.state < worker_techspec_state::payment,
-            logic_exception::cannot_delete_paying_worker_techspec,
-            "Cannot delete paying worker techspec");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment_complete, "Techspec already closed");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment, "Techspec paying, cannot delete");
 
         _db.close_worker_techspec(wto, worker_techspec_state::closed_by_author);
     }
@@ -153,13 +164,10 @@ namespace golos { namespace chain {
 
         const auto& wpo = _db.get_worker_proposal(wto.worker_proposal_post);
 
-        GOLOS_CHECK_LOGIC(wpo.state == worker_proposal_state::created,
-            logic_exception::this_worker_proposal_already_has_approved_techspec,
-            "This worker proposal already has approved techspec");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment_complete, "Techspec closed, cannot approve");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::approved, "Techspec already approved");
 
-        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::created,
-            logic_exception::techspec_is_already_approved_or_closed,
-            "Techspec is already approved or closed");
+        CHECK_PROPOSAL_STATE(wpo.state < PROPOSAL_STATE::techspec, "Another techspec approved for this proposal");
 
         const auto& wtao_idx = _db.get_index<worker_techspec_approve_index, by_techspec_approver>();
         auto wtao_itr = wtao_idx.find(std::make_tuple(wto.post, o.approver));
@@ -269,9 +277,8 @@ namespace golos { namespace chain {
         const auto& wto_post = _db.get_comment(o.author, o.worker_techspec_permlink);
         const auto& wto = _db.get_worker_techspec(wto_post.id);
 
-        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::work || wto.state == worker_techspec_state::wip,
-            logic_exception::worker_result_can_be_created_only_for_techspec_in_work,
-            "Worker result can be created only for techspec in work");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::complete, "Techspec already complete");
+        CHECK_TECHSPEC_STATE(wto.state >= TECHSPEC_STATE::work, "Techspec not yet in work");
 
         _db.modify(wto, [&](worker_techspec_object& wto) {
             wto.worker_result_post = post.id;
@@ -285,9 +292,8 @@ namespace golos { namespace chain {
         const auto& worker_result_post = _db.get_comment(o.author, o.permlink);
         const auto& wto = _db.get_worker_result(worker_result_post.id);
 
-        GOLOS_CHECK_LOGIC(wto.state < worker_techspec_state::payment,
-            logic_exception::cannot_delete_worker_result_for_paying_techspec,
-            "Cannot delete worker result for paying techspec");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment_complete, "Techspec closed, cannot delete result");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment, "Techspec paying, cannot delete result");
 
         _db.modify(wto, [&](worker_techspec_object& wto) {
             wto.worker_result_post = comment_id_type(-1);
@@ -303,15 +309,14 @@ namespace golos { namespace chain {
         const auto& wto_post = _db.get_comment(o.worker_techspec_author, o.worker_techspec_permlink);
         const auto& wto = _db.get_worker_techspec(wto_post.id);
 
-        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::wip || wto.state == worker_techspec_state::work
-                || wto.state == worker_techspec_state::complete || wto.state == worker_techspec_state::payment,
-            logic_exception::worker_techspec_should_be_in_work_complete_or_paying,
-            "Worker techspec should be in work, complete or paying");
+        CHECK_TECHSPEC_STATE(wto.state != TECHSPEC_STATE::payment_complete, "Techspec payed out, nothing to approve");
 
-        if (wto.state != worker_techspec_state::complete) {
-            GOLOS_CHECK_LOGIC(o.state != worker_techspec_approve_state::approve,
-                logic_exception::techspec_cannot_be_approved_when_paying_or_not_finished,
-                "Techspec cannot be approved when paying or not finished");
+        CHECK_TECHSPEC_STATE(wto.state <= TECHSPEC_STATE::payment, "Techspec closed, cannot approve payments");
+        CHECK_TECHSPEC_STATE(wto.state >= TECHSPEC_STATE::work, "Techspec not yet in work, nothing to approve");
+
+        if (o.state == worker_techspec_approve_state::approve) {
+            CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment, "Payments already approved");
+            CHECK_TECHSPEC_STATE(wto.state == TECHSPEC_STATE::complete, "Techspec still in work, nothing to approve");
         }
 
         const auto& wpao_idx = _db.get_index<worker_payment_approve_index, by_techspec_approver>();
@@ -370,9 +375,10 @@ namespace golos { namespace chain {
         const auto& wto = _db.get_worker_techspec(wto_post.id);
 
         if (!o.worker.size()) { // Unassign worker
-            GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::work,
-                logic_exception::cannot_unassign_worker_from_finished_or_not_started_work,
-                "Cannot unassign worker from finished or not started work");
+            CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::complete, "Techspec already complete, cannot unassign");
+            CHECK_TECHSPEC_STATE(wto.state >= TECHSPEC_STATE::work, "No worker assigned, nothing to unassign");
+
+            CHECK_TECHSPEC_STATE(wto.state != TECHSPEC_STATE::wip, "Techspec in WIP, cannot unassign");
 
             GOLOS_CHECK_LOGIC(o.assigner == wto.worker || o.assigner == wto_post.author,
                 logic_exception::you_are_not_techspec_author_or_worker,
@@ -386,9 +392,8 @@ namespace golos { namespace chain {
             return;
         }
 
-        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::approved,
-            logic_exception::worker_can_be_assigned_only_to_proposal_with_approved_techspec,
-            "Worker can be assigned only to proposal with approved techspec");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::work, "Worker already assigned");
+        CHECK_TECHSPEC_STATE(wto.state >= TECHSPEC_STATE::approved, "Techspec not yet approved, cannot assign worker");
 
         _db.get_account(o.worker);
 

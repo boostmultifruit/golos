@@ -348,17 +348,8 @@ namespace golos {
             insufficient_funds_to_approve,
             worker_not_set,
             techspec_already_used_for_another_proposal,
-            // TODO: state exceptions to be separated, no "or" in exceptions
-            this_worker_proposal_already_has_approved_techspec,
-            cannot_delete_paying_worker_techspec,
-            techspec_is_already_approved_or_closed,
-            worker_result_can_be_created_only_for_techspec_in_work,
-            cannot_delete_worker_result_for_paying_techspec,
-            worker_techspec_should_be_in_work_complete_or_paying,
-            techspec_cannot_be_approved_when_paying_or_not_finished,
-            worker_techspec_already_has_final_result,
-            worker_can_be_assigned_only_to_proposal_with_approved_techspec,
-            cannot_unassign_worker_from_finished_or_not_started_work,
+            incorrect_proposal_state,
+            incorrect_techspec_state,
 
             // custom operations
             inner_authorities_does_not_match_outer,
@@ -640,17 +631,8 @@ FC_REFLECT_ENUM(golos::logic_exception::error_types,
         (insufficient_funds_to_approve)
         (worker_not_set)
         (techspec_already_used_for_another_proposal)
-
-        (this_worker_proposal_already_has_approved_techspec)
-        (cannot_delete_paying_worker_techspec)
-        (techspec_is_already_approved_or_closed)
-        (worker_result_can_be_created_only_for_techspec_in_work)
-        (cannot_delete_worker_result_for_paying_techspec)
-        (worker_techspec_should_be_in_work_complete_or_paying)
-        (techspec_cannot_be_approved_when_paying_or_not_finished)
-        (worker_techspec_already_has_final_result)
-        (worker_can_be_assigned_only_to_proposal_with_approved_techspec)
-        (cannot_unassign_worker_from_finished_or_not_started_work)
+        (incorrect_proposal_state)
+        (incorrect_techspec_state)
 
         // custom operations
         (inner_authorities_does_not_match_outer)

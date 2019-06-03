@@ -118,13 +118,13 @@ BOOST_AUTO_TEST_CASE(worker_payment_approve_apply) {
 
     BOOST_TEST_MESSAGE("-- Approving payment before work started");
 
-    GOLOS_CHECK_ERROR_LOGIC(worker_techspec_should_be_in_work_complete_or_paying, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, private_key, op);
 
     BOOST_TEST_MESSAGE("-- Approving payment in techspec work state");
 
     worker_assign("bob", bob_private_key, "bob", "bob-techspec", "alice");
 
-    GOLOS_CHECK_ERROR_LOGIC(techspec_cannot_be_approved_when_paying_or_not_finished, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, private_key, op);
 
     BOOST_TEST_MESSAGE("-- Approving payment in techspec complete state");
 
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(worker_payment_approve_apply) {
 
     BOOST_TEST_MESSAGE("-- Approving payment in techspec payment state");
 
-    GOLOS_CHECK_ERROR_LOGIC(techspec_cannot_be_approved_when_paying_or_not_finished, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, private_key, op);
 }
 
 BOOST_AUTO_TEST_CASE(worker_payment_disapprove) {
