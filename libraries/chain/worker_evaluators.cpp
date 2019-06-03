@@ -15,7 +15,7 @@ namespace golos { namespace chain {
         const auto* wpo = _db.find_worker_proposal(post.id);
 
         if (wpo) {
-            WORKER_CHECK_PROPOSAL_HAS_NO_TECHSPECS((*wpo), "Cannot edit worker proposal with techspecs");
+            CHECK_PROPOSAL_HAS_NO_TECHSPECS((*wpo), "Cannot edit worker proposal with techspecs");
 
             _db.modify(*wpo, [&](worker_proposal_object& wpo) {
                 wpo.type = o.type;
@@ -23,7 +23,7 @@ namespace golos { namespace chain {
             return;
         }
 
-        WORKER_CHECK_POST(post);
+        CHECK_POST(post);
 
         _db.create<worker_proposal_object>([&](worker_proposal_object& wpo) {
             wpo.post = post.id;
@@ -39,7 +39,7 @@ namespace golos { namespace chain {
 
         const auto& wpo = _db.get_worker_proposal(post.id);
 
-        WORKER_CHECK_PROPOSAL_HAS_NO_TECHSPECS(wpo, "Cannot delete worker proposal with techspecs");
+        CHECK_PROPOSAL_HAS_NO_TECHSPECS(wpo, "Cannot delete worker proposal with techspecs");
 
         _db.remove(wpo);
     }
@@ -82,7 +82,7 @@ namespace golos { namespace chain {
             return;
         }
 
-        WORKER_CHECK_POST(post);
+        CHECK_POST(post);
 
         if (wpo.type == worker_proposal_type::premade_work) {
             GOLOS_CHECK_LOGIC(o.author == wpo_post.author,
@@ -117,7 +117,7 @@ namespace golos { namespace chain {
     void worker_techspec_approve_evaluator::do_apply(const worker_techspec_approve_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_techspec_approve_operation");
 
-        WORKER_CHECK_APPROVER_WITNESS(o.approver);
+        CHECK_APPROVER_WITNESS(o.approver);
 
         const auto& wto_post = _db.get_comment(o.author, o.permlink);
         const auto& wto = _db.get_worker_techspec(wto_post.id);
@@ -133,14 +133,14 @@ namespace golos { namespace chain {
         auto wtao_itr = wtao_idx.find(std::make_tuple(wto.post, o.approver));
 
         if (o.state == worker_techspec_approve_state::abstain) {
-            WORKER_CHECK_NO_VOTE_REPEAT(wtao_itr, wtao_idx.end());
+            CHECK_NO_VOTE_REPEAT(wtao_itr, wtao_idx.end());
 
             _db.remove(*wtao_itr);
             return;
         }
 
         if (wtao_itr != wtao_idx.end()) {
-            WORKER_CHECK_NO_VOTE_REPEAT(wtao_itr->state, o.state);
+            CHECK_NO_VOTE_REPEAT(wtao_itr->state, o.state);
 
             _db.modify(*wtao_itr, [&](worker_techspec_approve_object& wtao) {
                 wtao.state = o.state;
@@ -231,7 +231,7 @@ namespace golos { namespace chain {
 
         const auto& post = _db.get_comment(o.author, o.permlink);
 
-        WORKER_CHECK_POST(post);
+        CHECK_POST(post);
         worker_result_check_post(_db, post);
 
         const auto& wto_post = _db.get_comment(o.author, o.worker_techspec_permlink);
@@ -264,7 +264,7 @@ namespace golos { namespace chain {
     void worker_payment_approve_evaluator::do_apply(const worker_payment_approve_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_payment_approve_operation");
 
-        WORKER_CHECK_APPROVER_WITNESS(o.approver);
+        CHECK_APPROVER_WITNESS(o.approver);
 
         const auto& wto_post = _db.get_comment(o.worker_techspec_author, o.worker_techspec_permlink);
         const auto& wto = _db.get_worker_techspec(wto_post.id);
@@ -283,14 +283,14 @@ namespace golos { namespace chain {
         auto wpao_itr = wpao_idx.find(std::make_tuple(wto_post.id, o.approver));
 
         if (o.state == worker_techspec_approve_state::abstain) {
-            WORKER_CHECK_NO_VOTE_REPEAT(wpao_itr, wpao_idx.end());
+            CHECK_NO_VOTE_REPEAT(wpao_itr, wpao_idx.end());
 
             _db.remove(*wpao_itr);
             return;
         }
 
         if (wpao_itr != wpao_idx.end()) {
-            WORKER_CHECK_NO_VOTE_REPEAT(wpao_itr->state, o.state);
+            CHECK_NO_VOTE_REPEAT(wpao_itr->state, o.state);
 
             _db.modify(*wpao_itr, [&](worker_payment_approve_object& wpao) {
                 wpao.state = o.state;
