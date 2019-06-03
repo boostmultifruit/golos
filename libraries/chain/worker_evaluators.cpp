@@ -1,51 +1,11 @@
 #include <golos/protocol/worker_operations.hpp>
-#include <golos/protocol/exceptions.hpp>
+#include <golos/protocol/worker_exceptions.hpp>
 #include <golos/chain/steem_evaluator.hpp>
 #include <golos/chain/database.hpp>
 #include <golos/chain/steem_objects.hpp>
 #include <golos/chain/worker_objects.hpp>
 
 namespace golos { namespace chain {
-
-#define WORKER_CHECK_NO_VOTE_REPEAT(STATE1, STATE2) \
-    GOLOS_CHECK_LOGIC(STATE1 != STATE2, \
-        logic_exception::already_voted_in_similar_way, \
-        "You already have voted for this object with this state")
-
-#define WORKER_CHECK_POST(POST) \
-    GOLOS_CHECK_LOGIC(POST.parent_author == STEEMIT_ROOT_POST_PARENT, \
-        logic_exception::post_is_not_root, \
-        "Can be created only on root post"); \
-    GOLOS_CHECK_LOGIC(POST.cashout_time != fc::time_point_sec::maximum(), \
-        logic_exception::post_should_be_in_cashout_window, \
-        "Post should be in cashout window");
-
-#define WORKER_CHECK_PROPOSAL_HAS_NO_TECHSPECS(WPO, MSG) \
-    const auto& wto_idx = _db.get_index<worker_techspec_index, by_worker_proposal>(); \
-    auto wto_itr = wto_idx.find(WPO.post); \
-    GOLOS_CHECK_LOGIC(wto_itr == wto_idx.end(), \
-        logic_exception::proposal_has_techspecs, \
-        MSG);
-
-#define PROPOSAL_STATE worker_proposal_state
-
-#define CHECK_PROPOSAL_STATE(EXPR, MSG) \
-    GOLOS_CHECK_LOGIC(EXPR, \
-        logic_exception::incorrect_proposal_state, \
-        MSG)
-
-#define TECHSPEC_STATE worker_techspec_state
-
-#define CHECK_TECHSPEC_STATE(EXPR, MSG) \
-    GOLOS_CHECK_LOGIC(EXPR, \
-        logic_exception::incorrect_techspec_state, \
-        MSG)
-
-#define WORKER_CHECK_APPROVER_WITNESS(APPROVER) \
-    auto approver_witness = _db.get_witness(APPROVER); \
-    GOLOS_CHECK_LOGIC(approver_witness.schedule == witness_object::top19, \
-        logic_exception::approver_is_not_top19_witness, \
-        "Approver should be in Top 19 of witnesses");
 
     void worker_proposal_evaluator::do_apply(const worker_proposal_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_proposal_operation");

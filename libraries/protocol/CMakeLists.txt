@@ -8,6 +8,7 @@ list(APPEND ${CURRENT_TARGET}_HEADERS
         include/golos/protocol/block_header.hpp
         include/golos/protocol/config.hpp
         include/golos/protocol/exceptions.hpp
+        include/golos/protocol/worker_exceptions.hpp
         include/golos/protocol/get_config.hpp
         include/golos/protocol/operation_util.hpp
         include/golos/protocol/operation_util_impl.hpp
