@@ -151,6 +151,19 @@ namespace golos { namespace protocol {
         }
     };
 
+    struct worker_fund_operation : public base_operation {
+        account_name_type sponsor;
+        asset amount;
+
+        extensions_type extensions;
+
+        void validate() const;
+
+        void get_required_posting_authorities(flat_set<account_name_type>& a) const {
+            a.insert(sponsor);
+        }
+    };
+
 } } // golos::protocol
 
 FC_REFLECT_ENUM(golos::protocol::worker_proposal_type, (task)(premade_work)(_size))
@@ -191,3 +204,7 @@ FC_REFLECT(
 FC_REFLECT(
     (golos::protocol::worker_payment_approve_operation),
     (approver)(worker_techspec_author)(worker_techspec_permlink)(state)(extensions))
+
+FC_REFLECT(
+    (golos::protocol::worker_fund_operation),
+    (sponsor)(amount)(extensions))
