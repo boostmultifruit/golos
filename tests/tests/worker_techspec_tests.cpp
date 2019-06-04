@@ -136,21 +136,26 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_create) {
 
     BOOST_TEST_MESSAGE("-- Create worker techspec on comment instead of post case");
 
-    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
 
-    comment_create("carol", carol_private_key, "i-am-comment", "alice", "alice-proposal");
+    comment_create("carol", carol_private_key, "i-am-comment", "bob", "bob-techspec");
 
     op.author = "carol";
     op.permlink = "i-am-comment";
     GOLOS_CHECK_ERROR_LOGIC(worker_techspec_can_be_created_only_on_post, carol_private_key, op);
     generate_block();
 
-    BOOST_TEST_MESSAGE("-- Create worker techspec for non-existant proposal");
-
-    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
+    BOOST_TEST_MESSAGE("-- Create techspec for proposal without post");
 
     op.author = "bob";
     op.permlink = "bob-techspec";
+    GOLOS_CHECK_ERROR_MISSING(comment, make_comment_id("alice", "alice-proposal"), bob_private_key, op);
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Create worker techspec for non-existant proposal");
+
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+
     GOLOS_CHECK_ERROR_LOGIC(worker_techspec_can_be_created_only_for_existing_proposal, bob_private_key, op);
     generate_block();
 
@@ -1510,6 +1515,15 @@ BOOST_AUTO_TEST_CASE(worker_techspec_delete_apply_closing_cases) {
 
         check_techspec_closed(db->get_comment("dave", string("dave-techspec2")).id,
             worker_techspec_state::closed_by_author, true, ASSET_GOLOS(0));
+    }
+
+    BOOST_TEST_MESSAGE("-- Checking cannot close closed techspec");
+
+    {
+        worker_techspec_delete_operation op;
+        op.author = "dave";
+        op.permlink = "dave-techspec2";
+        GOLOS_CHECK_ERROR_LOGIC(cannot_delete_paying_worker_techspec, dave_private_key, op);
     }
 
     validate_database();
