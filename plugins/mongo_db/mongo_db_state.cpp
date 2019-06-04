@@ -789,6 +789,10 @@ namespace mongo_db {
         }
     }
 
+    auto state_writer::operator()(const vote_options_operation& op) -> result_type {
+
+    }
+
     auto state_writer::operator()(const comment_operation& op) -> result_type {
         format_comment(op.author, op.permlink);
         format_account(op.author);

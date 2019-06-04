@@ -70,6 +70,7 @@ namespace golos { namespace protocol {
                 break_free_referral_operation,
                 delegate_vesting_shares_with_interest_operation,
                 reject_vesting_shares_delegation_operation,
+                vote_options_operation,
                 worker_proposal_operation,
                 worker_proposal_delete_operation,
                 worker_techspec_operation,
