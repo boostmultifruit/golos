@@ -261,7 +261,8 @@ BOOST_AUTO_TEST_CASE(worker_techspec_delete) {
 BOOST_AUTO_TEST_CASE(worker_techspec_approve) {
     BOOST_TEST_MESSAGE("Testing: worker_techspec_approve");
 
-    ACTORS((alice)(bob)(approver))
+    ACTORS((alice)(bob)(carol)(dave))
+    auto approver_key = create_approvers(0, STEEMIT_MAJOR_VOTED_WITNESSES);
     generate_block();
 
     signed_transaction tx;
@@ -295,18 +296,16 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve) {
     BOOST_CHECK_EQUAL(wtmo_itr->approves, 0);
     BOOST_CHECK_EQUAL(wtmo_itr->disapproves, 0);
 
-    witness_create("approver", approver_private_key, "foo.bar", approver_private_key.get_public_key(), 1000);
-
     generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
 
     BOOST_TEST_MESSAGE("-- Approving worker techspec (after abstain)");
 
     worker_techspec_approve_operation op;
-    op.approver = "approver";
+    op.approver = "approver0";
     op.author = "bob";
     op.permlink = "bob-techspec";
     op.state = worker_techspec_approve_state::approve;
-    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_key, op));
 
     wtmo_itr = wtmo_idx.find(wto_post.id);
     BOOST_CHECK_EQUAL(wtmo_itr->approves, 1);
@@ -315,7 +314,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve) {
     BOOST_TEST_MESSAGE("-- Disapproving worker techspec (after approve)");
 
     op.state = worker_techspec_approve_state::disapprove;
-    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_key, op));
 
     wtmo_itr = wtmo_idx.find(wto_post.id);
     BOOST_CHECK_EQUAL(wtmo_itr->approves, 0);
@@ -324,7 +323,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve) {
     BOOST_TEST_MESSAGE("-- Abstaining worker techspec (after disapprove)");
 
     op.state = worker_techspec_approve_state::abstain;
-    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_key, op));
 
     wtmo_itr = wtmo_idx.find(wto_post.id);
     BOOST_CHECK_EQUAL(wtmo_itr->approves, 0);
@@ -335,7 +334,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve) {
     BOOST_TEST_MESSAGE("-- Disapproving worker techspec (after abstain)");
 
     op.state = worker_techspec_approve_state::disapprove;
-    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_key, op));
 
     wtmo_itr = wtmo_idx.find(wto_post.id);
     BOOST_CHECK_EQUAL(wtmo_itr->approves, 0);
@@ -344,7 +343,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve) {
     BOOST_TEST_MESSAGE("-- Approving worker techspec (after disapprove)");
 
     op.state = worker_techspec_approve_state::approve;
-    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_key, op));
 
     wtmo_itr = wtmo_idx.find(wto_post.id);
     BOOST_CHECK_EQUAL(wtmo_itr->approves, 1);
@@ -353,15 +352,73 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve) {
     BOOST_TEST_MESSAGE("-- Abstaining worker techspec (after approve)");
 
     op.state = worker_techspec_approve_state::abstain;
-    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_private_key, op));
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, approver_key, op));
 
     wtmo_itr = wtmo_idx.find(wto_post.id);
     BOOST_CHECK_EQUAL(wtmo_itr->approves, 0);
     BOOST_CHECK_EQUAL(wtmo_itr->disapproves, 0);
 
-    generate_block();
+    {
+        BOOST_TEST_MESSAGE("-- Approving techspec with preset worker and checking metadata fields");
+
+        comment_create("carol", carol_private_key, "carol-proposal", "", "carol-proposal");
+        worker_proposal("carol", carol_private_key, "carol-proposal", worker_proposal_type::task);
+
+        comment_create("dave", dave_private_key, "dave-techspec", "", "dave-techspec");
+
+        wtop.author = "dave";
+        wtop.permlink = "dave-techspec";
+        wtop.worker_proposal_author = "carol";
+        wtop.worker_proposal_permlink = "carol-proposal";
+        wtop.worker = "dave";
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, dave_private_key, wtop));
+        generate_block();
+
+        auto now = approve_techspec_final("dave", "dave-techspec", approver_key);
+
+        wtmo_itr = wtmo_idx.find(db->get_comment("dave", string("dave-techspec")).id);
+        BOOST_CHECK_EQUAL(wtmo_itr->work_beginning_time, now);
+        BOOST_CHECK_EQUAL(wtmo_itr->payment_beginning_time, fc::time_point_sec::min());
+    }
 
     validate_database();
+}
+
+BOOST_AUTO_TEST_CASE(worker_techspec_approve_premade) {
+    BOOST_TEST_MESSAGE("Testing: worker_techspec_approve_premade");
+
+    ACTORS((alice)(bob))
+    generate_block();
+
+    signed_transaction tx;
+
+    const auto& wtmo_idx = db->get_index<worker_techspec_metadata_index, by_post>();
+
+    comment_create("alice", alice_private_key, "alice-premade", "", "alice-premade");
+    worker_proposal("alice", alice_private_key, "alice-premade", worker_proposal_type::premade_work);
+
+    worker_techspec_operation wtop;
+    wtop.author = "alice";
+    wtop.permlink = "alice-premade";
+    wtop.worker_proposal_author = "alice";
+    wtop.worker_proposal_permlink = "alice-premade";
+    wtop.specification_cost = ASSET_GOLOS(6);
+    wtop.development_cost = ASSET_GOLOS(60);
+    wtop.payments_interval = 60*60*24;
+    wtop.payments_count = 40;
+    wtop.worker = "bob";
+    BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, alice_private_key, wtop));
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Approving techspec and checking metadata fields");
+
+    auto approver_key = create_approvers(0, STEEMIT_MAJOR_VOTED_WITNESSES);
+    generate_blocks(STEEMIT_MAX_WITNESSES);
+    auto now = approve_techspec_final("alice", "alice-premade", approver_key);
+
+    auto wtmo_itr = wtmo_idx.find(db->get_comment("alice", string("alice-premade")).id);
+    BOOST_CHECK_EQUAL(wtmo_itr->work_beginning_time, fc::time_point_sec::min());
+    BOOST_CHECK_EQUAL(wtmo_itr->payment_beginning_time, now + wtop.payments_interval);
 }
 
 BOOST_AUTO_TEST_CASE(worker_assign) {
