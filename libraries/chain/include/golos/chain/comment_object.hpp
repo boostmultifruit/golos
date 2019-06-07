@@ -147,6 +147,8 @@ namespace golos {
             int8_t num_changes = 0; ///< Count of vote changes (while consensus). If = -1 then related post is archived & vote no more needed for consensus
 
             bip::vector<delegator_vote_interest_rate, allocator<delegator_vote_interest_rate>> delegator_vote_interest_rates;
+
+            uint16_t author_promote_rate = GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE;
         };
 
         struct by_comment_voter;

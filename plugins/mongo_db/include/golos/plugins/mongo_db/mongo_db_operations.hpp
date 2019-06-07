@@ -17,6 +17,7 @@ namespace mongo_db {
         operation_writer();
 
         result_type operator()(const vote_operation& op);
+        result_type operator()(const vote_options_operation& op);
         result_type operator()(const comment_operation& op);
         result_type operator()(const transfer_operation& op);
         result_type operator()(const transfer_to_vesting_operation& op);

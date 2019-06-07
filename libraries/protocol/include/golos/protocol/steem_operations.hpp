@@ -265,6 +265,38 @@ namespace golos { namespace protocol {
             }
         };
 
+        struct vote_author_promote_rate {
+            vote_author_promote_rate() {
+            }
+
+            vote_author_promote_rate(uint16_t r)
+                : rate(r) {
+            }
+
+            uint16_t rate = GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE;
+
+            void validate() const;
+        };
+
+        using vote_options_extension = static_variant <
+            vote_author_promote_rate
+        >;
+
+        using vote_options_extensions_type = flat_set<vote_options_extension>;
+
+        struct vote_options_operation : public base_operation {
+            account_name_type voter;
+            account_name_type author;
+            string permlink;
+            vote_options_extensions_type extensions;
+
+            void validate() const;
+
+            void get_required_posting_authorities(flat_set<account_name_type> &a) const {
+                a.insert(voter);
+            }
+        };
+
 
         /**
          * @ingroup operations
@@ -1476,6 +1508,11 @@ FC_REFLECT((golos::protocol::account_witness_vote_operation), (account)(witness)
 FC_REFLECT((golos::protocol::account_witness_proxy_operation), (account)(proxy))
 FC_REFLECT((golos::protocol::comment_operation), (parent_author)(parent_permlink)(author)(permlink)(title)(body)(json_metadata))
 FC_REFLECT((golos::protocol::vote_operation), (voter)(author)(permlink)(weight))
+
+FC_REFLECT((golos::protocol::vote_author_promote_rate), (rate));
+FC_REFLECT_TYPENAME((golos::protocol::vote_options_extension));
+FC_REFLECT((golos::protocol::vote_options_operation), (voter)(author)(permlink)(extensions))
+
 FC_REFLECT((golos::protocol::custom_operation), (required_auths)(id)(data))
 FC_REFLECT((golos::protocol::custom_json_operation), (required_auths)(required_posting_auths)(id)(json))
 FC_REFLECT((golos::protocol::custom_binary_operation), (required_owner_auths)(required_active_auths)(required_posting_auths)(required_auths)(id)(data))

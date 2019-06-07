@@ -328,6 +328,10 @@ if (options.count(name)) { \
             insert_pair(op.voter, op.author);
         }
 
+        void operator()(const vote_options_operation& op) {
+            insert_pair(op.voter, op.author);
+        }
+
         void operator()(const author_reward_operation& op) {
             insert_receiver(op.author);
         }

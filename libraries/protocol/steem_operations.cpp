@@ -212,6 +212,32 @@ namespace golos { namespace protocol {
             GOLOS_CHECK_PARAM(permlink, validate_permlink(permlink));
         }
 
+        struct vote_options_extension_validate_visitor {
+            vote_options_extension_validate_visitor() {
+            }
+
+            using result_type = void;
+
+            void operator()(const vote_author_promote_rate& vapr) const {
+                vapr.validate();
+            }
+        };
+
+        void vote_author_promote_rate::validate() const {
+            GOLOS_CHECK_PARAM(rate, {
+                GOLOS_CHECK_VALUE_LEGE(rate, GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE, GOLOS_MAX_VOTE_AUTHOR_PROMOTE_RATE);
+            });
+        }
+
+        void vote_options_operation::validate() const {
+            GOLOS_CHECK_PARAM(voter, validate_account_name(voter));
+            GOLOS_CHECK_PARAM(author, validate_account_name(author));
+            GOLOS_CHECK_PARAM(permlink, validate_permlink(permlink));
+            for (auto& e : extensions) {
+                e.visit(vote_options_extension_validate_visitor());
+            }
+        }
+
         void transfer_operation::validate() const {
             try {
                 GOLOS_CHECK_PARAM(from, validate_account_name(from));

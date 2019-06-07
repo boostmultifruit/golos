@@ -1786,6 +1786,41 @@ namespace golos { namespace chain {
             } FC_CAPTURE_AND_RETHROW((o))
         }
 
+        struct vote_options_extension_visitor {
+            vote_options_extension_visitor(const comment_vote_object& vote, database& db)
+                : _vote(vote), _db(db) {
+            }
+
+            const comment_vote_object& _vote;
+            database& _db;
+
+            using result_type = void;
+
+            void operator()(const vote_author_promote_rate& vapr) const {
+                _db.modify(_vote, [&](comment_vote_object& c) {
+                    c.author_promote_rate = vapr.rate;
+                });
+            }
+        };
+
+        void vote_options_evaluator::do_apply(const vote_options_operation& o) {
+            ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1014, "vote_options_operation");
+
+            const auto& comment = _db.get_comment(o.author, o.permlink);
+            const auto& voter = _db.get_account(o.voter);
+
+            const auto& vote_idx = _db.get_index<comment_vote_index, by_comment_voter>();
+            const auto vote_itr = vote_idx.find(std::make_tuple(comment.id, voter.id));
+
+            if (vote_itr == vote_idx.end()) {
+                GOLOS_THROW_MISSING_OBJECT("comment_vote_object", fc::mutable_variant_object()("voter",o.voter)("author",o.author)("permlink",o.permlink));
+            }
+
+            for (auto& e : o.extensions) {
+                e.visit(vote_options_extension_visitor(*vote_itr, _db));
+            }
+        }
+
         void custom_evaluator::do_apply(const custom_operation &o) {
         }
 
