@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(worker_proposal_apply_create) {
 
     op.author = "bob";
     op.permlink = "i-am-comment";
-    GOLOS_CHECK_ERROR_LOGIC(worker_proposal_can_be_created_only_on_post, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(post_is_not_root, bob_private_key, op);
     generate_block();
 
     BOOST_TEST_MESSAGE("-- Normal create worker proposal case");
@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(worker_proposal_apply_modify) {
     BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, wtop));
 
     op.type = worker_proposal_type::task;
-    GOLOS_CHECK_ERROR_LOGIC(cannot_edit_worker_proposal_with_techspecs, alice_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(proposal_has_techspecs, alice_private_key, op);
 }
 
 BOOST_AUTO_TEST_CASE(worker_proposal_delete_validate) {
@@ -248,7 +248,7 @@ BOOST_AUTO_TEST_CASE(worker_proposal_delete_apply) {
 
         op.author = "bob";
         op.permlink = "i-am-post";
-        GOLOS_CHECK_ERROR_LOGIC(cannot_delete_worker_proposal_with_techspecs, bob_private_key, op);
+        GOLOS_CHECK_ERROR_LOGIC(proposal_has_techspecs, bob_private_key, op);
     }
 
     validate_database();

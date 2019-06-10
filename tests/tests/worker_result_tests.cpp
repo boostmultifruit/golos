@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE(worker_result_apply) {
     comment_create("bob", bob_private_key, "i-am-comment", "alice", "alice-proposal");
 
     op.permlink = "i-am-comment";
-    GOLOS_CHECK_ERROR_LOGIC(worker_result_can_be_created_only_on_post, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(post_is_not_root, bob_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Create result for techspec with not-exist post");
 
@@ -116,12 +116,12 @@ BOOST_AUTO_TEST_CASE(worker_result_apply) {
     BOOST_TEST_MESSAGE("-- Create result on post used for techspec");
 
     op.permlink = "bob-techspec";
-    GOLOS_CHECK_ERROR_LOGIC(this_post_already_used_as_worker_techspec, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(post_is_already_used, bob_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Create result for techspec not in work");
 
     op.permlink = "bob-result";
-    GOLOS_CHECK_ERROR_LOGIC(worker_result_can_be_created_only_for_techspec_in_work, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, bob_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Normal create result");
 
@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(worker_result_apply) {
 
     BOOST_TEST_MESSAGE("-- Create result on post already used for result");
 
-    GOLOS_CHECK_ERROR_LOGIC(this_post_already_used_as_worker_result, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(post_is_already_used, bob_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Create result after WIP");
 
@@ -290,7 +290,7 @@ BOOST_AUTO_TEST_CASE(worker_result_delete_apply) {
 
         BOOST_TEST_MESSAGE("---- Checking cannot delete result");
 
-        GOLOS_CHECK_ERROR_LOGIC(cannot_delete_worker_result_for_paying_techspec, bob_private_key, op);
+        GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, bob_private_key, op);
     }
 }
 

@@ -129,7 +129,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_create) {
 
     signed_transaction tx;
 
-    BOOST_TEST_MESSAGE("-- Create worker techspec with no post case");
+    BOOST_TEST_MESSAGE("-- Create techspec for proposal without post");
 
     worker_techspec_operation op;
     op.author = "bob";
@@ -140,32 +140,30 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_create) {
     op.development_cost = ASSET_GOLOS(60);
     op.payments_interval = 60*60*24*2;
     op.payments_count = 2;
+    GOLOS_CHECK_ERROR_MISSING(comment, make_comment_id("alice", "alice-proposal"), bob_private_key, op);
+
+    BOOST_TEST_MESSAGE("-- Create techspec for non-exist proposal");
+
+    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
+
+    GOLOS_CHECK_ERROR_MISSING(worker_proposal_object, make_comment_id("alice", "alice-proposal"), bob_private_key, op);
+    generate_block();
+
+    BOOST_TEST_MESSAGE("-- Create worker techspec with no post case");
+
+    worker_proposal("alice", alice_private_key, "alice-proposal", worker_proposal_type::task);
+    generate_block();
+
     GOLOS_CHECK_ERROR_MISSING(comment, make_comment_id("bob", "bob-techspec"), bob_private_key, op);
     generate_block();
 
     BOOST_TEST_MESSAGE("-- Create worker techspec on comment instead of post case");
 
-    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
-
-    comment_create("carol", carol_private_key, "i-am-comment", "bob", "bob-techspec");
+    comment_create("carol", carol_private_key, "i-am-comment", "alice", "alice-proposal");
 
     op.author = "carol";
     op.permlink = "i-am-comment";
-    GOLOS_CHECK_ERROR_LOGIC(worker_techspec_can_be_created_only_on_post, carol_private_key, op);
-    generate_block();
-
-    BOOST_TEST_MESSAGE("-- Create techspec for proposal without post");
-
-    op.author = "bob";
-    op.permlink = "bob-techspec";
-    GOLOS_CHECK_ERROR_MISSING(comment, make_comment_id("alice", "alice-proposal"), bob_private_key, op);
-    generate_block();
-
-    BOOST_TEST_MESSAGE("-- Create worker techspec for non-existant proposal");
-
-    comment_create("alice", alice_private_key, "alice-proposal", "", "alice-proposal");
-
-    GOLOS_CHECK_ERROR_LOGIC(worker_techspec_can_be_created_only_for_existing_proposal, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(post_is_not_root, carol_private_key, op);
     generate_block();
 
     BOOST_TEST_MESSAGE("-- Create worker techspec for worker proposal with approved techspec");
@@ -202,14 +200,13 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_create) {
         op.permlink = "bob-techspec";
         op.worker_proposal_author = "eve";
         op.worker_proposal_permlink = "eve-proposal";
-        GOLOS_CHECK_ERROR_LOGIC(this_worker_proposal_already_has_approved_techspec, bob_private_key, op);
+        GOLOS_CHECK_ERROR_LOGIC(incorrect_proposal_state, bob_private_key, op);
         generate_block();
     }
 
     BOOST_TEST_MESSAGE("-- Normal create worker techspec case");
 
-    worker_proposal("alice", alice_private_key, "alice-proposal", worker_proposal_type::task);
-    generate_block();
+    comment_create("bob", bob_private_key, "bob-techspec", "", "bob-techspec");
 
     op.worker_proposal_author = "alice";
     op.worker_proposal_permlink = "alice-proposal";
@@ -275,14 +272,14 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_create_premade) {
     op.payments_interval = 60*60*24*2;
     op.payments_count = 2;
     op.worker = "bob";
-    GOLOS_CHECK_ERROR_LOGIC(premade_techspec_can_be_created_only_by_proposal_author, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(you_are_not_proposal_author, bob_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Creating techspec without preset worker");
 
     op.author = "alice";
     op.permlink = "alice-premade";
     op.worker = "";
-    GOLOS_CHECK_ERROR_LOGIC(premade_techspec_requires_worker_set_on_creation, alice_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(worker_not_set, alice_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Creating techspec with not-exist worker");
 
@@ -434,7 +431,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_modify) {
 
     op.worker_proposal_author = "carol";
     op.worker_proposal_permlink = "carol-proposal";
-    GOLOS_CHECK_ERROR_LOGIC(this_worker_techspec_is_already_used_for_another_worker_proposal, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(techspec_already_used_for_another_proposal, bob_private_key, op);
     generate_block();
 
     BOOST_TEST_MESSAGE("-- Modify payments_count and payments_interval");
@@ -511,7 +508,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_modify) {
     }
 
     op.development_cost = ASSET_GOLOS(50);
-    GOLOS_CHECK_ERROR_LOGIC(this_worker_proposal_already_has_approved_techspec, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(incorrect_proposal_state, bob_private_key, op);
 
     validate_database();
 }
@@ -543,7 +540,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_modify_premade) {
     BOOST_TEST_MESSAGE("-- Trying clear worker");
 
     op.worker = "";
-    GOLOS_CHECK_ERROR_LOGIC(premade_techspec_requires_worker_set_on_creation, alice_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(worker_not_set, alice_private_key, op);
 }
 
 BOOST_AUTO_TEST_CASE(worker_techspec_approve_validate) {
@@ -614,7 +611,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve_checking_funds) {
     op.author = "bob";
     op.permlink = "bob-techspec";
     op.state = worker_techspec_approve_state::approve;
-    GOLOS_CHECK_ERROR_LOGIC(insufficient_funds_to_approve_worker_techspec, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(insufficient_funds_to_approve, private_key, op);
 
     BOOST_TEST_MESSAGE("-- Editing it to be equal to revenue");
 
@@ -663,7 +660,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve_apply_combinations) {
     op.author = "bob";
     op.permlink = "bob-techspec";
     op.state = worker_techspec_approve_state::abstain;
-    GOLOS_CHECK_ERROR_LOGIC(you_already_have_voted_for_this_object_with_this_state, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(already_voted_in_similar_way, private_key, op);
 
     auto check_approves = [&](int approve_count, int disapprove_count) {
         auto approves = db->count_worker_techspec_approves(db->get_comment("bob", string("bob-techspec")).id);
@@ -683,7 +680,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve_apply_combinations) {
 
     BOOST_TEST_MESSAGE("-- Repeating approve techspec case");
 
-    GOLOS_CHECK_ERROR_LOGIC(you_already_have_voted_for_this_object_with_this_state, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(already_voted_in_similar_way, private_key, op);
 
     BOOST_TEST_MESSAGE("-- Disapproving techspec (after approve)");
 
@@ -695,7 +692,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve_apply_combinations) {
 
     BOOST_TEST_MESSAGE("-- Repeating disapprove techspec case");
 
-    GOLOS_CHECK_ERROR_LOGIC(you_already_have_voted_for_this_object_with_this_state, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(already_voted_in_similar_way, private_key, op);
 
     BOOST_TEST_MESSAGE("-- Approving techspec (after disapprove)");
 
@@ -817,7 +814,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve_apply_approve) {
     BOOST_TEST_MESSAGE("-- Approving techspec by witness not in TOP-19 case");
 
     op.approver = "approver0";
-    GOLOS_CHECK_ERROR_LOGIC(approver_of_techspec_should_be_in_top19_of_witnesses, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(approver_is_not_top19_witness, private_key, op);
 
     generate_blocks(STEEMIT_MAX_WITNESSES); // Enough for approvers to reach TOP-19 and not leave it
 
@@ -904,7 +901,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve_apply_approve) {
 
     op.author = "eve";
     op.permlink = "eve-techspec";
-    GOLOS_CHECK_ERROR_LOGIC(this_worker_proposal_already_has_approved_techspec, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(incorrect_proposal_state, private_key, op);
 
     {
         BOOST_TEST_MESSAGE("-- Approving techspec with preset worker");
@@ -1046,7 +1043,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_approve_apply_disapprove) {
 
     BOOST_TEST_MESSAGE("-- Checking cannot approve closed techspec");
 
-    GOLOS_CHECK_ERROR_LOGIC(techspec_is_already_approved_or_closed, private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, private_key, op);
 
     BOOST_TEST_MESSAGE("-- Checking can approve another techspec");
 
@@ -1328,7 +1325,7 @@ BOOST_AUTO_TEST_CASE(worker_assign_apply) {
 
     BOOST_TEST_MESSAGE("-- Assigning worker to non-approved techspec case");
 
-    GOLOS_CHECK_ERROR_LOGIC(worker_can_be_assigned_only_to_proposal_with_approved_techspec, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, bob_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Approving worker techspec by witnesses");
 
@@ -1360,7 +1357,7 @@ BOOST_AUTO_TEST_CASE(worker_assign_apply) {
     BOOST_TEST_MESSAGE("-- Unassigning worker without assigned case");
 
     op.worker = "";
-    GOLOS_CHECK_ERROR_LOGIC(cannot_unassign_worker_from_finished_or_not_started_work, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, bob_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Normal assigning worker case");
 
@@ -1376,13 +1373,13 @@ BOOST_AUTO_TEST_CASE(worker_assign_apply) {
 
     BOOST_TEST_MESSAGE("-- Repeat assigning worker case");
 
-    GOLOS_CHECK_ERROR_LOGIC(worker_can_be_assigned_only_to_proposal_with_approved_techspec, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, bob_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Unassigning worker by foreign person case");
 
     op.assigner = "chuck";
     op.worker = "";
-    GOLOS_CHECK_ERROR_LOGIC(worker_can_be_unassigned_only_by_techspec_author_or_himself, chuck_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(you_are_not_techspec_author_or_worker, chuck_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Normal unassigning worker by techspec author case");
 
@@ -1695,7 +1692,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_delete_apply_closing_cases) {
         worker_techspec_delete_operation op;
         op.author = "dave";
         op.permlink = "dave-techspec2";
-        GOLOS_CHECK_ERROR_LOGIC(cannot_delete_paying_worker_techspec, dave_private_key, op);
+        GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, dave_private_key, op);
     }
 
     validate_database();

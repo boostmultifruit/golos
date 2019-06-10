@@ -1,5 +1,5 @@
 #include <golos/protocol/worker_operations.hpp>
-#include <golos/protocol/exceptions.hpp>
+#include <golos/protocol/worker_exceptions.hpp>
 #include <golos/chain/steem_evaluator.hpp>
 #include <golos/chain/database.hpp>
 #include <golos/chain/steem_objects.hpp>
@@ -7,33 +7,15 @@
 
 namespace golos { namespace chain {
 
-#define WORKER_CHECK_NO_VOTE_REPEAT(STATE1, STATE2) \
-    GOLOS_CHECK_LOGIC(STATE1 != STATE2, \
-        logic_exception::you_already_have_voted_for_this_object_with_this_state, \
-        "You already have voted for this object with this state")
-
-#define WORKER_CHECK_POST_IN_CASHOUT_WINDOW(POST) \
-    GOLOS_CHECK_LOGIC(POST.cashout_time != fc::time_point_sec::maximum(), \
-        logic_exception::post_should_be_in_cashout_window, \
-        "Post should be in cashout window");
-
     void worker_proposal_evaluator::do_apply(const worker_proposal_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_proposal_operation");
 
         const auto& post = _db.get_comment(o.author, o.permlink);
 
-        GOLOS_CHECK_LOGIC(post.parent_author == STEEMIT_ROOT_POST_PARENT,
-            logic_exception::worker_proposal_can_be_created_only_on_post,
-            "Worker proposal can be created only on post");
-
         const auto* wpo = _db.find_worker_proposal(post.id);
 
         if (wpo) {
-            const auto& wto_idx = _db.get_index<worker_techspec_index, by_worker_proposal>();
-            auto wto_itr = wto_idx.find(wpo->post);
-            GOLOS_CHECK_LOGIC(wto_itr == wto_idx.end(),
-                logic_exception::cannot_edit_worker_proposal_with_techspecs,
-                "Cannot edit worker proposal with techspecs");
+            CHECK_PROPOSAL_HAS_NO_TECHSPECS((*wpo), "Cannot edit worker proposal with techspecs");
 
             _db.modify(*wpo, [&](worker_proposal_object& wpo) {
                 wpo.type = o.type;
@@ -41,7 +23,7 @@ namespace golos { namespace chain {
             return;
         }
 
-        WORKER_CHECK_POST_IN_CASHOUT_WINDOW(post);
+        CHECK_POST(post);
 
         _db.create<worker_proposal_object>([&](worker_proposal_object& wpo) {
             wpo.post = post.id;
@@ -57,11 +39,7 @@ namespace golos { namespace chain {
 
         const auto& wpo = _db.get_worker_proposal(post.id);
 
-        const auto& wto_idx = _db.get_index<worker_techspec_index, by_worker_proposal>();
-        auto wto_itr = wto_idx.find(wpo.post);
-        GOLOS_CHECK_LOGIC(wto_itr == wto_idx.end(),
-            logic_exception::cannot_delete_worker_proposal_with_techspecs,
-            "Cannot delete worker proposal with techspecs");
+        CHECK_PROPOSAL_HAS_NO_TECHSPECS(wpo, "Cannot delete worker proposal with techspecs");
 
         _db.remove(wpo);
     }
@@ -69,42 +47,28 @@ namespace golos { namespace chain {
     void worker_techspec_evaluator::do_apply(const worker_techspec_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_techspec_operation");
 
-        const auto& post = _db.get_comment(o.author, o.permlink);
-
-        GOLOS_CHECK_LOGIC(post.parent_author == STEEMIT_ROOT_POST_PARENT,
-            logic_exception::worker_techspec_can_be_created_only_on_post,
-            "Worker techspec can be created only on post");
-
         const auto& wpo_post = _db.get_comment(o.worker_proposal_author, o.worker_proposal_permlink);
-        const auto* wpo = _db.find_worker_proposal(wpo_post.id);
+        const auto& wpo = _db.get_worker_proposal(wpo_post.id);
 
-        GOLOS_CHECK_LOGIC(wpo,
-            logic_exception::worker_techspec_can_be_created_only_for_existing_proposal,
-            "Worker techspec can be created only for existing proposal");
+        CHECK_PROPOSAL_STATE(wpo.state < PROPOSAL_STATE::techspec, "Proposal already has approved techspec");
 
-        GOLOS_CHECK_LOGIC(wpo->state == worker_proposal_state::created,
-            logic_exception::this_worker_proposal_already_has_approved_techspec,
-            "This worker proposal already has approved techspec");
-
-        if (wpo->type == worker_proposal_type::premade_work) {
-            GOLOS_CHECK_LOGIC(o.author == wpo_post.author,
-                logic_exception::premade_techspec_can_be_created_only_by_proposal_author,
-                "Premade techspec can be created only by proposal author");
-
+        if (wpo.type == worker_proposal_type::premade_work) {
             GOLOS_CHECK_LOGIC(o.worker.size(),
-                logic_exception::premade_techspec_requires_worker_set_on_creation,
-                "Premade techspec requires worker set on creation");
+                logic_exception::worker_not_set,
+                "Premade techspec requires worker set");
         }
 
         if (o.worker.size()) {
             _db.get_account(o.worker);
         }
 
+        const auto& post = _db.get_comment(o.author, o.permlink);
+
         const auto* wto = _db.find_worker_techspec(post.id);
 
         if (wto) {
             GOLOS_CHECK_LOGIC(wto->worker_proposal_post == wpo_post.id,
-                logic_exception::this_worker_techspec_is_already_used_for_another_worker_proposal,
+                logic_exception::techspec_already_used_for_another_proposal,
                 "This worker techspec is already used for another worker proposal");
 
             _db.modify(*wto, [&](worker_techspec_object& wto) {
@@ -118,11 +82,17 @@ namespace golos { namespace chain {
             return;
         }
 
-        WORKER_CHECK_POST_IN_CASHOUT_WINDOW(post);
+        CHECK_POST(post);
+
+        if (wpo.type == worker_proposal_type::premade_work) {
+            GOLOS_CHECK_LOGIC(o.author == wpo_post.author,
+                logic_exception::you_are_not_proposal_author,
+                "Premade techspec can be created only by proposal author");
+        }
 
         _db.create<worker_techspec_object>([&](worker_techspec_object& wto) {
             wto.post = post.id;
-            wto.worker_proposal_post = wpo->post;
+            wto.worker_proposal_post = wpo.post;
             wto.state = worker_techspec_state::created;
             wto.specification_cost = o.specification_cost;
             wto.development_cost = o.development_cost;
@@ -138,9 +108,8 @@ namespace golos { namespace chain {
         const auto& post = _db.get_comment(o.author, o.permlink);
         const auto& wto = _db.get_worker_techspec(post.id);
 
-        GOLOS_CHECK_LOGIC(wto.state < worker_techspec_state::payment,
-            logic_exception::cannot_delete_paying_worker_techspec,
-            "Cannot delete paying worker techspec");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment_complete, "Techspec already closed");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment, "Techspec paying, cannot delete");
 
         _db.close_worker_techspec(wto, worker_techspec_state::closed_by_author);
     }
@@ -148,36 +117,30 @@ namespace golos { namespace chain {
     void worker_techspec_approve_evaluator::do_apply(const worker_techspec_approve_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_techspec_approve_operation");
 
-        auto approver_witness = _db.get_witness(o.approver);
-        GOLOS_CHECK_LOGIC(approver_witness.schedule == witness_object::top19,
-            logic_exception::approver_of_techspec_should_be_in_top19_of_witnesses,
-            "Approver of techspec should be in Top 19 of witnesses");
+        CHECK_APPROVER_WITNESS(o.approver);
 
         const auto& wto_post = _db.get_comment(o.author, o.permlink);
         const auto& wto = _db.get_worker_techspec(wto_post.id);
 
         const auto& wpo = _db.get_worker_proposal(wto.worker_proposal_post);
 
-        GOLOS_CHECK_LOGIC(wpo.state == worker_proposal_state::created,
-            logic_exception::this_worker_proposal_already_has_approved_techspec,
-            "This worker proposal already has approved techspec");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment_complete, "Techspec closed, cannot approve");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::approved, "Techspec already approved");
 
-        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::created,
-            logic_exception::techspec_is_already_approved_or_closed,
-            "Techspec is already approved or closed");
+        CHECK_PROPOSAL_STATE(wpo.state < PROPOSAL_STATE::techspec, "Another techspec approved for this proposal");
 
         const auto& wtao_idx = _db.get_index<worker_techspec_approve_index, by_techspec_approver>();
         auto wtao_itr = wtao_idx.find(std::make_tuple(wto.post, o.approver));
 
         if (o.state == worker_techspec_approve_state::abstain) {
-            WORKER_CHECK_NO_VOTE_REPEAT(wtao_itr, wtao_idx.end());
+            CHECK_NO_VOTE_REPEAT(wtao_itr, wtao_idx.end());
 
             _db.remove(*wtao_itr);
             return;
         }
 
         if (wtao_itr != wtao_idx.end()) {
-            WORKER_CHECK_NO_VOTE_REPEAT(wtao_itr->state, o.state);
+            CHECK_NO_VOTE_REPEAT(wtao_itr->state, o.state);
 
             _db.modify(*wtao_itr, [&](worker_techspec_approve_object& wtao) {
                 wtao.state = o.state;
@@ -214,8 +177,8 @@ namespace golos { namespace chain {
             consumption_funds = consumption_funds * payments_period / day_sec;
 
             GOLOS_CHECK_LOGIC(revenue_funds >= consumption_funds,
-                logic_exception::insufficient_funds_to_approve_worker_techspec,
-                "Insufficient funds to approve worker techspec");
+                logic_exception::insufficient_funds_to_approve,
+                "Insufficient funds to approve techspec");
 
             if (approves[o.state] < STEEMIT_MAJOR_VOTED_WITNESSES) {
                 return;
@@ -252,20 +215,14 @@ namespace golos { namespace chain {
     }
 
     void worker_result_check_post(const database& _db, const comment_object& post) {
-        GOLOS_CHECK_LOGIC(post.parent_author == STEEMIT_ROOT_POST_PARENT,
-            logic_exception::worker_result_can_be_created_only_on_post,
-            "Worker result can be created only on post");
-
-        WORKER_CHECK_POST_IN_CASHOUT_WINDOW(post);
-
         const auto* wto_result = _db.find_worker_result(post.id);
         GOLOS_CHECK_LOGIC(!wto_result,
-            logic_exception::this_post_already_used_as_worker_result,
+            logic_exception::post_is_already_used,
             "This post already used as worker result");
 
         const auto* wto = _db.find_worker_techspec(post.id);
         GOLOS_CHECK_LOGIC(!wto,
-            logic_exception::this_post_already_used_as_worker_techspec,
+            logic_exception::post_is_already_used,
             "This post already used as worker techspec");
     }
 
@@ -274,14 +231,14 @@ namespace golos { namespace chain {
 
         const auto& post = _db.get_comment(o.author, o.permlink);
 
+        CHECK_POST(post);
         worker_result_check_post(_db, post);
 
         const auto& wto_post = _db.get_comment(o.author, o.worker_techspec_permlink);
         const auto& wto = _db.get_worker_techspec(wto_post.id);
 
-        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::work || wto.state == worker_techspec_state::wip,
-            logic_exception::worker_result_can_be_created_only_for_techspec_in_work,
-            "Worker result can be created only for techspec in work");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::complete, "Techspec already complete");
+        CHECK_TECHSPEC_STATE(wto.state >= TECHSPEC_STATE::work, "Techspec not yet in work");
 
         _db.modify(wto, [&](worker_techspec_object& wto) {
             wto.worker_result_post = post.id;
@@ -295,9 +252,8 @@ namespace golos { namespace chain {
         const auto& worker_result_post = _db.get_comment(o.author, o.permlink);
         const auto& wto = _db.get_worker_result(worker_result_post.id);
 
-        GOLOS_CHECK_LOGIC(wto.state < worker_techspec_state::payment,
-            logic_exception::cannot_delete_worker_result_for_paying_techspec,
-            "Cannot delete worker result for paying techspec");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment_complete, "Techspec closed, cannot delete result");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment, "Techspec paying, cannot delete result");
 
         _db.modify(wto, [&](worker_techspec_object& wto) {
             wto.worker_result_post = comment_id_type(-1);
@@ -308,37 +264,33 @@ namespace golos { namespace chain {
     void worker_payment_approve_evaluator::do_apply(const worker_payment_approve_operation& o) {
         ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1013, "worker_payment_approve_operation");
 
-        auto approver_witness = _db.get_witness(o.approver);
-        GOLOS_CHECK_LOGIC(approver_witness.schedule == witness_object::top19,
-            logic_exception::approver_of_payment_should_be_in_top19_of_witnesses,
-            "Approver of payment should be in Top 19 of witnesses");
+        CHECK_APPROVER_WITNESS(o.approver);
 
         const auto& wto_post = _db.get_comment(o.worker_techspec_author, o.worker_techspec_permlink);
         const auto& wto = _db.get_worker_techspec(wto_post.id);
 
-        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::wip || wto.state == worker_techspec_state::work
-                || wto.state == worker_techspec_state::complete || wto.state == worker_techspec_state::payment,
-            logic_exception::worker_techspec_should_be_in_work_complete_or_paying,
-            "Worker techspec should be in work, complete or paying");
+        CHECK_TECHSPEC_STATE(wto.state != TECHSPEC_STATE::payment_complete, "Techspec payed out, nothing to approve");
 
-        if (wto.state != worker_techspec_state::complete) {
-            GOLOS_CHECK_LOGIC(o.state != worker_techspec_approve_state::approve,
-                logic_exception::techspec_cannot_be_approved_when_paying_or_not_finished,
-                "Techspec cannot be approved when paying or not finished");
+        CHECK_TECHSPEC_STATE(wto.state <= TECHSPEC_STATE::payment, "Techspec closed, cannot approve payments");
+        CHECK_TECHSPEC_STATE(wto.state >= TECHSPEC_STATE::work, "Techspec not yet in work, nothing to approve");
+
+        if (o.state == worker_techspec_approve_state::approve) {
+            CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::payment, "Payments already approved");
+            CHECK_TECHSPEC_STATE(wto.state == TECHSPEC_STATE::complete, "Techspec still in work, nothing to approve");
         }
 
         const auto& wpao_idx = _db.get_index<worker_payment_approve_index, by_techspec_approver>();
         auto wpao_itr = wpao_idx.find(std::make_tuple(wto_post.id, o.approver));
 
         if (o.state == worker_techspec_approve_state::abstain) {
-            WORKER_CHECK_NO_VOTE_REPEAT(wpao_itr, wpao_idx.end());
+            CHECK_NO_VOTE_REPEAT(wpao_itr, wpao_idx.end());
 
             _db.remove(*wpao_itr);
             return;
         }
 
         if (wpao_itr != wpao_idx.end()) {
-            WORKER_CHECK_NO_VOTE_REPEAT(wpao_itr->state, o.state);
+            CHECK_NO_VOTE_REPEAT(wpao_itr->state, o.state);
 
             _db.modify(*wpao_itr, [&](worker_payment_approve_object& wpao) {
                 wpao.state = o.state;
@@ -383,12 +335,13 @@ namespace golos { namespace chain {
         const auto& wto = _db.get_worker_techspec(wto_post.id);
 
         if (!o.worker.size()) { // Unassign worker
-            GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::work,
-                logic_exception::cannot_unassign_worker_from_finished_or_not_started_work,
-                "Cannot unassign worker from finished or not started work");
+            CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::complete, "Techspec already complete, cannot unassign");
+            CHECK_TECHSPEC_STATE(wto.state >= TECHSPEC_STATE::work, "No worker assigned, nothing to unassign");
+
+            CHECK_TECHSPEC_STATE(wto.state != TECHSPEC_STATE::wip, "Techspec in WIP, cannot unassign");
 
             GOLOS_CHECK_LOGIC(o.assigner == wto.worker || o.assigner == wto_post.author,
-                logic_exception::worker_can_be_unassigned_only_by_techspec_author_or_himself,
+                logic_exception::you_are_not_techspec_author_or_worker,
                 "Worker can be unassigned only by techspec author or himself");
 
             _db.modify(wto, [&](worker_techspec_object& wto) {
@@ -399,9 +352,8 @@ namespace golos { namespace chain {
             return;
         }
 
-        GOLOS_CHECK_LOGIC(wto.state == worker_techspec_state::approved,
-            logic_exception::worker_can_be_assigned_only_to_proposal_with_approved_techspec,
-            "Worker can be assigned only to proposal with approved techspec");
+        CHECK_TECHSPEC_STATE(wto.state < TECHSPEC_STATE::work, "Worker already assigned");
+        CHECK_TECHSPEC_STATE(wto.state >= TECHSPEC_STATE::approved, "Techspec not yet approved, cannot assign worker");
 
         _db.get_account(o.worker);
 
