@@ -272,14 +272,14 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_create_premade) {
     op.payments_interval = 60*60*24*2;
     op.payments_count = 2;
     op.worker = "bob";
-    GOLOS_CHECK_ERROR_LOGIC(premade_techspec_can_be_created_only_by_proposal_author, bob_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(you_are_not_proposal_author, bob_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Creating techspec without preset worker");
 
     op.author = "alice";
     op.permlink = "alice-premade";
     op.worker = "";
-    GOLOS_CHECK_ERROR_LOGIC(premade_techspec_requires_worker_set_on_creation, alice_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(worker_not_set, alice_private_key, op);
 
     BOOST_TEST_MESSAGE("-- Creating techspec with not-exist worker");
 
@@ -540,7 +540,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_apply_modify_premade) {
     BOOST_TEST_MESSAGE("-- Trying clear worker");
 
     op.worker = "";
-    GOLOS_CHECK_ERROR_LOGIC(premade_techspec_requires_worker_set_on_creation, alice_private_key, op);
+    GOLOS_CHECK_ERROR_LOGIC(worker_not_set, alice_private_key, op);
 }
 
 BOOST_AUTO_TEST_CASE(worker_techspec_approve_validate) {
@@ -1692,7 +1692,7 @@ BOOST_AUTO_TEST_CASE(worker_techspec_delete_apply_closing_cases) {
         worker_techspec_delete_operation op;
         op.author = "dave";
         op.permlink = "dave-techspec2";
-        GOLOS_CHECK_ERROR_LOGIC(cannot_delete_paying_worker_techspec, dave_private_key, op);
+        GOLOS_CHECK_ERROR_LOGIC(incorrect_techspec_state, dave_private_key, op);
     }
 
     validate_database();
