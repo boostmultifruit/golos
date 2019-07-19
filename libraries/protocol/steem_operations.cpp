@@ -351,6 +351,8 @@ namespace golos { namespace protocol {
             GOLOS_CHECK_VALUE_LE(worker_from_witness_fund_percent, STEEMIT_100_PERCENT);
             GOLOS_CHECK_VALUE_LE(worker_techspec_approve_term_sec, GOLOS_WORKER_TECHSPEC_APPROVE_TERM_SEC);
             GOLOS_CHECK_VALUE_LE(worker_result_approve_term_sec, GOLOS_WORKER_RESULT_APPROVE_TERM_SEC);
+            GOLOS_CHECK_VALUE_LEGE(min_vote_author_promote_rate, GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE, max_vote_author_promote_rate);
+            GOLOS_CHECK_VALUE_LEGE(max_vote_author_promote_rate, min_vote_author_promote_rate, GOLOS_MAX_VOTE_AUTHOR_PROMOTE_RATE);
         }
 
         void witness_update_operation::validate() const {
