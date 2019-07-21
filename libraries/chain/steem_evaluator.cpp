@@ -1447,6 +1447,11 @@ namespace golos { namespace chain {
                             cvo.vote_percent = o.weight;
                             cvo.last_update = _db.head_block_time();
                             cvo.num_changes = -2;           // mark vote that it's ready to be removed (archived comment)
+                            if (_db.has_hardfork(STEEMIT_HARDFORK_0_21__1014)) {
+                                cvo.author_promote_rate = mprops.min_vote_author_promote_rate;
+                            } else {
+                                cvo.author_promote_rate = GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE;
+                            }
                         });
                     } else {
                         _db.modify(*itr, [&](comment_vote_object& cvo) {
@@ -1672,6 +1677,12 @@ namespace golos { namespace chain {
                                 }
                             }
                         }
+
+                        if (_db.has_hardfork(STEEMIT_HARDFORK_0_21__1014)) {
+                            cv.author_promote_rate = mprops.min_vote_author_promote_rate;
+                        } else {
+                            cv.author_promote_rate = GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE;
+                        }
                     });
 
                     _db.adjust_rshares2(comment, old_rshares, new_rshares);
@@ -1797,6 +1808,14 @@ namespace golos { namespace chain {
             using result_type = void;
 
             void operator()(const vote_author_promote_rate& vapr) const {
+                const auto& mprops = _db.get_witness_schedule_object().median_props;
+                auto rate = vapr.rate; // Workaround for correct param name in GOLOS_CHECK_PARAM
+                GOLOS_CHECK_PARAM(rate, {
+                    GOLOS_CHECK_VALUE(mprops.min_vote_author_promote_rate <= vapr.rate && vapr.rate <= mprops.max_vote_author_promote_rate,
+                        "Vote author promote rate must be between ${min} and ${max}.",
+                        ("min", mprops.min_vote_author_promote_rate)("max", mprops.max_vote_author_promote_rate));
+                });
+
                 _db.modify(_vote, [&](comment_vote_object& c) {
                     c.author_promote_rate = vapr.rate;
                 });
