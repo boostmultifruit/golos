@@ -1,0 +1,20 @@
+#ifndef STEEMIT_HARDFORK_0_22
+#define STEEMIT_HARDFORK_0_22 22
+
+#define STEEMIT_HARDFORK_0_22__1013 (STEEMIT_HARDFORK_0_22) // Workers
+#define STEEMIT_HARDFORK_0_22__1107 (STEEMIT_HARDFORK_0_22) // Worker fund operation
+#define STEEMIT_HARDFORK_0_22__1008 (STEEMIT_HARDFORK_0_22) // Remove limit on max delegate interest witness prop
+#define STEEMIT_HARDFORK_0_22__1009 (STEEMIT_HARDFORK_0_22) // Remove limit on min curation percent witness prop
+#define STEEMIT_HARDFORK_0_22__1010 (STEEMIT_HARDFORK_0_22) // Fix post bandwidth
+#define STEEMIT_HARDFORK_0_22__1045 (STEEMIT_HARDFORK_0_22) // Two payout strategies for vesting delegations with interest
+#define STEEMIT_HARDFORK_0_22__1014 (STEEMIT_HARDFORK_0_22) // Vote author promote rate
+
+#ifdef STEEMIT_BUILD_TESTNET
+#define STEEMIT_HARDFORK_0_22_TIME  1547787600 // 18 jan 2019 12:00:00 MSK
+#else
+#define STEEMIT_HARDFORK_0_22_TIME  1565254800 // 08 aug 2019 12:00:00 MSK
+#endif
+
+#define STEEMIT_HARDFORK_0_22_VERSION hardfork_version( 0, 22 )
+
+#endif

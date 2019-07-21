@@ -72,7 +72,7 @@ namespace golos { namespace chain {
     }
 
     void database::process_worker_cashout() {
-        if (!has_hardfork(STEEMIT_HARDFORK_0_21__1013)) {
+        if (!has_hardfork(STEEMIT_HARDFORK_0_22__1013)) {
             return;
         }
 
@@ -201,7 +201,7 @@ namespace golos { namespace chain {
     }
 
     void database::clear_expired_worker_objects() {
-        if (!has_hardfork(STEEMIT_HARDFORK_0_21__1013)) {
+        if (!has_hardfork(STEEMIT_HARDFORK_0_22__1013)) {
             return;
         }
 

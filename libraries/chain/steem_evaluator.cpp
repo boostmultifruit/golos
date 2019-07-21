@@ -374,7 +374,7 @@ namespace golos { namespace chain {
 
             const auto &comment = _db.get_comment(o.author, o.permlink);
 
-            if (_db.has_hardfork(STEEMIT_HARDFORK_0_21__1013)
+            if (_db.has_hardfork(STEEMIT_HARDFORK_0_22__1013)
                 && comment.parent_author == STEEMIT_ROOT_POST_PARENT) {
 
                 const auto* wpo = _db.find_worker_proposal(comment.id);
@@ -607,8 +607,8 @@ namespace golos { namespace chain {
 
                 last_post_comment = std::max<time_point_sec>(auth.last_comment, auth.last_post);
 
-                if (db.has_hardfork(STEEMIT_HARDFORK_0_21__1010)) {
-                    hf21();
+                if (db.has_hardfork(STEEMIT_HARDFORK_0_22__1010)) {
+                    hf22();
                 } else if (db.has_hardfork(STEEMIT_HARDFORK_0_19__533_1002)) {
                     hf19();
                 } else if (db.has_hardfork(STEEMIT_HARDFORK_0_12__176)) {
@@ -654,7 +654,7 @@ namespace golos { namespace chain {
                 return reward_weight;
             }
 
-            void hf21() const {
+            void hf22() const {
                 if (op.parent_author == STEEMIT_ROOT_POST_PARENT) {
                     auto consumption = mprops.posts_window / mprops.posts_per_window;
 
@@ -855,7 +855,7 @@ namespace golos { namespace chain {
                             com.auction_window_size = mprops.auction_window_size;
                         }
 
-                        if (_db.has_hardfork(STEEMIT_HARDFORK_0_21__1009)) {
+                        if (_db.has_hardfork(STEEMIT_HARDFORK_0_22__1009)) {
                             com.curation_rewards_percent = std::max(mprops.min_curation_percent,
                                 std::min(uint16_t(STEEMIT_DEF_CURATION_PERCENT), mprops.max_curation_percent));
                         } else if (_db.has_hardfork(STEEMIT_HARDFORK_0_19__324)) {
@@ -1447,7 +1447,7 @@ namespace golos { namespace chain {
                             cvo.vote_percent = o.weight;
                             cvo.last_update = _db.head_block_time();
                             cvo.num_changes = -2;           // mark vote that it's ready to be removed (archived comment)
-                            if (_db.has_hardfork(STEEMIT_HARDFORK_0_21__1014)) {
+                            if (_db.has_hardfork(STEEMIT_HARDFORK_0_22__1014)) {
                                 cvo.author_promote_rate = mprops.min_vote_author_promote_rate;
                             } else {
                                 cvo.author_promote_rate = GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE;
@@ -1678,7 +1678,7 @@ namespace golos { namespace chain {
                             }
                         }
 
-                        if (_db.has_hardfork(STEEMIT_HARDFORK_0_21__1014)) {
+                        if (_db.has_hardfork(STEEMIT_HARDFORK_0_22__1014)) {
                             cv.author_promote_rate = mprops.min_vote_author_promote_rate;
                         } else {
                             cv.author_promote_rate = GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE;
@@ -1823,7 +1823,7 @@ namespace golos { namespace chain {
         };
 
         void vote_options_evaluator::do_apply(const vote_options_operation& o) {
-            ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1014, "vote_options_operation");
+            ASSERT_REQ_HF(STEEMIT_HARDFORK_0_22__1014, "vote_options_operation");
 
             const auto& comment = _db.get_comment(o.author, o.permlink);
             const auto& voter = _db.get_account(o.voter);
@@ -2521,7 +2521,7 @@ namespace {
             database& _db;
 
             result_type operator()(const delegate_delegator_payout_strategy& ddps) const {
-                ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21__1045, "delegate_delegator_payout_strategy");
+                ASSERT_REQ_HF(STEEMIT_HARDFORK_0_22__1045, "delegate_delegator_payout_strategy");
 
                 if (_vdo) {
                     GOLOS_CHECK_LOGIC(_vdo->payout_strategy == ddps.strategy,
