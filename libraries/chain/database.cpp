@@ -1875,7 +1875,7 @@ namespace golos { namespace chain {
                 active.push_back(&get_witness(wso.current_shuffled_witnesses[i]));
             }
 
-            chain_properties_21 median_props;
+            chain_properties_22 median_props;
 
             auto median = active.size() / 2;
 
@@ -1934,12 +1934,12 @@ namespace golos { namespace chain {
             calc_median(&chain_properties_19::curation_reward_curve);
             calc_median(&chain_properties_19::allow_distribute_auction_reward);
             calc_median(&chain_properties_19::allow_return_auction_reward_to_fund);
-            calc_median(&chain_properties_21::worker_from_content_fund_percent);
-            calc_median(&chain_properties_21::worker_from_vesting_fund_percent);
-            calc_median(&chain_properties_21::worker_from_witness_fund_percent);
-            calc_median(&chain_properties_21::worker_techspec_approve_term_sec);
-            calc_median(&chain_properties_21::worker_result_approve_term_sec);
-            calc_median_min_max(&chain_properties_21::min_vote_author_promote_rate, &chain_properties_21::max_vote_author_promote_rate);
+            calc_median(&chain_properties_22::worker_from_content_fund_percent);
+            calc_median(&chain_properties_22::worker_from_vesting_fund_percent);
+            calc_median(&chain_properties_22::worker_from_witness_fund_percent);
+            calc_median(&chain_properties_22::worker_techspec_approve_term_sec);
+            calc_median(&chain_properties_22::worker_result_approve_term_sec);
+            calc_median_min_max(&chain_properties_22::min_vote_author_promote_rate, &chain_properties_22::max_vote_author_promote_rate);
 
             const auto& dynamic_global_properties = get_dynamic_global_properties();
 
@@ -2383,7 +2383,7 @@ namespace golos { namespace chain {
                         }
 
                         if (claim > 0) { // min_amt is non-zero satoshis
-                            if (has_hardfork(STEEMIT_HARDFORK_0_21__1014)) {
+                            if (has_hardfork(STEEMIT_HARDFORK_0_22__1014)) {
                                 claim -= (uint128_t(claim) * (*itr->vote).author_promote_rate / STEEMIT_100_PERCENT).to_uint64();
                             }
                             unclaimed_rewards -= claim;
@@ -2568,12 +2568,12 @@ namespace golos { namespace chain {
         *  At a start overall the network has an inflation rate of 15.15% of virtual golos per year.
         *  Each year the inflation rate is reduced by 0.42% and stops at 0.95% of virtual golos per year in 33 years.
         *
-        *  Before HF21:
+        *  Before HF22:
         *  66.67% of inflation is directed to content reward pool
         *  26.67% of inflation is directed to vesting fund
         *  6.66% of inflation is directed to witness pay
         *
-        *  After HF21:
+        *  After HF22:
         *  60.00% of inflation is directed to content reward pool
         *  24.00% of inflation is directed to vesting fund
         *  6.00% of inflation is directed to witness pay
@@ -2615,7 +2615,7 @@ namespace golos { namespace chain {
                 auto witness_reward = new_steem - content_reward - vesting_reward; /// Remaining 6.66% to witness pay
 
                 fc::safe<int64_t> worker_reward = 0;
-                if (has_hardfork(STEEMIT_HARDFORK_0_21__1013)) {
+                if (has_hardfork(STEEMIT_HARDFORK_0_22__1013)) {
                     auto content_to_worker = content_reward * wso.median_props.worker_from_content_fund_percent / STEEMIT_100_PERCENT;
                     content_reward -= content_to_worker;
                     worker_reward += content_to_worker;
@@ -4572,6 +4572,9 @@ namespace golos { namespace chain {
             FC_ASSERT(STEEMIT_HARDFORK_0_21 == 21, "Invalid hardfork configuration");
             _hardfork_times[STEEMIT_HARDFORK_0_21] = fc::time_point_sec(STEEMIT_HARDFORK_0_21_TIME);
             _hardfork_versions[STEEMIT_HARDFORK_0_21] = STEEMIT_HARDFORK_0_21_VERSION;
+            FC_ASSERT(STEEMIT_HARDFORK_0_22 == 22, "Invalid hardfork configuration");
+            _hardfork_times[STEEMIT_HARDFORK_0_22] = fc::time_point_sec(STEEMIT_HARDFORK_0_22_TIME);
+            _hardfork_versions[STEEMIT_HARDFORK_0_22] = STEEMIT_HARDFORK_0_22_VERSION;
 
             const auto &hardforks = get_hardfork_property_object();
             FC_ASSERT(
@@ -4830,6 +4833,8 @@ namespace golos { namespace chain {
                 case STEEMIT_HARDFORK_0_20:
                     break;
                 case STEEMIT_HARDFORK_0_21:
+                    break;
+                case STEEMIT_HARDFORK_0_22:
                     break;
                 default:
                     break;

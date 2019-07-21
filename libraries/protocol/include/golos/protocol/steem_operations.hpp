@@ -696,7 +696,7 @@ namespace golos { namespace protocol {
             chain_properties_19& operator=(const chain_properties_19&) = default;
         };
 
-        struct chain_properties_21 : public chain_properties_19 {
+        struct chain_properties_22 : public chain_properties_19 {
 
             /**
              * Percent of content fund growth on each block being redirected to worker fund
@@ -735,22 +735,22 @@ namespace golos { namespace protocol {
 
             void validate() const;
 
-            chain_properties_21& operator=(const chain_properties_17& src) {
+            chain_properties_22& operator=(const chain_properties_17& src) {
                 chain_properties_19::operator=(src);
                 return *this;
             }
 
-            chain_properties_21& operator=(const chain_properties_18& src) {
+            chain_properties_22& operator=(const chain_properties_18& src) {
                 chain_properties_19::operator=(src);
                 return *this;
             }
 
-            chain_properties_21& operator=(const chain_properties_19& src) {
+            chain_properties_22& operator=(const chain_properties_19& src) {
                 chain_properties_19::operator=(src);
                 return *this;
             }
 
-            chain_properties_21& operator=(const chain_properties_21&) = default;
+            chain_properties_22& operator=(const chain_properties_22&) = default;
         };
 
         inline chain_properties_17& chain_properties_17::operator=(const chain_properties_18& src) {
@@ -764,7 +764,7 @@ namespace golos { namespace protocol {
             chain_properties_17,
             chain_properties_18,
             chain_properties_19,
-            chain_properties_21
+            chain_properties_22
         >;
 
         /**
@@ -1474,7 +1474,7 @@ FC_REFLECT_DERIVED(
     (max_delegated_vesting_interest_rate)(custom_ops_bandwidth_multiplier)(min_curation_percent)(max_curation_percent)
     (curation_reward_curve)(allow_distribute_auction_reward)(allow_return_auction_reward_to_fund))
 FC_REFLECT_DERIVED(
-    (golos::protocol::chain_properties_21), ((golos::protocol::chain_properties_19)),
+    (golos::protocol::chain_properties_22), ((golos::protocol::chain_properties_19)),
     (worker_from_content_fund_percent)(worker_from_vesting_fund_percent)(worker_from_witness_fund_percent)
     (worker_techspec_approve_term_sec)(worker_result_approve_term_sec)
     (min_vote_author_promote_rate)(max_vote_author_promote_rate))

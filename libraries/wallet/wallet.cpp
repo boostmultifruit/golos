@@ -346,7 +346,7 @@ namespace golos { namespace wallet {
                         result["max_curation_percent"] = median_props.max_curation_percent;
                         result["curation_reward_curve"] = median_props.curation_reward_curve;
                     }
-                    if (hf >= hardfork_version(0, STEEMIT_HARDFORK_0_21)) {
+                    if (hf >= hardfork_version(0, STEEMIT_HARDFORK_0_22)) {
                         result["worker_from_content_fund_percent"] = median_props.worker_from_content_fund_percent;
                         result["worker_from_vesting_fund_percent"] = median_props.worker_from_vesting_fund_percent;
                         result["worker_from_witness_fund_percent"] = median_props.worker_from_witness_fund_percent;
@@ -2166,12 +2166,12 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
             op.interest_rate = interest_rate;
 
             auto hf = my->_remote_database_api->get_hardfork_version();
-            if (hf >= hardfork_version(0, STEEMIT_HARDFORK_0_21)) {
+            if (hf >= hardfork_version(0, STEEMIT_HARDFORK_0_22)) {
                 delegate_delegator_payout_strategy ddps;
                 ddps.strategy = payout_strategy;
                 op.extensions.insert(ddps);
             } else {
-                FC_ASSERT(payout_strategy == delegator_payout_strategy::to_delegator, "Before HF21 enabled only to_delegator payout strategy");
+                FC_ASSERT(payout_strategy == delegator_payout_strategy::to_delegator, "Before HF22 enabled only to_delegator payout strategy");
             }
 
             signed_transaction tx;
@@ -2294,20 +2294,20 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
             SET_PROP(p, allow_return_auction_reward_to_fund);
             op.props = p;
             auto hf = my->_remote_database_api->get_hardfork_version();
-            if (hf >= hardfork_version(0, STEEMIT_HARDFORK_0_21) || !!props.worker_from_content_fund_percent
+            if (hf >= hardfork_version(0, STEEMIT_HARDFORK_0_22) || !!props.worker_from_content_fund_percent
                     || !!props.worker_from_vesting_fund_percent || !!props.worker_from_witness_fund_percent
                     || !!props.worker_techspec_approve_term_sec || !!props.worker_result_approve_term_sec
                     || !!props.min_vote_author_promote_rate || !!props.max_vote_author_promote_rate) {
-                chain_properties_21 p21;
-                p21 = p;
-                SET_PROP(p21, worker_from_content_fund_percent);
-                SET_PROP(p21, worker_from_vesting_fund_percent);
-                SET_PROP(p21, worker_from_witness_fund_percent);
-                SET_PROP(p21, worker_techspec_approve_term_sec);
-                SET_PROP(p21, worker_result_approve_term_sec);
-                SET_PROP(p21, min_vote_author_promote_rate);
-                SET_PROP(p21, max_vote_author_promote_rate);
-                op.props = p21;
+                chain_properties_22 p22;
+                p22 = p;
+                SET_PROP(p22, worker_from_content_fund_percent);
+                SET_PROP(p22, worker_from_vesting_fund_percent);
+                SET_PROP(p22, worker_from_witness_fund_percent);
+                SET_PROP(p22, worker_techspec_approve_term_sec);
+                SET_PROP(p22, worker_result_approve_term_sec);
+                SET_PROP(p22, min_vote_author_promote_rate);
+                SET_PROP(p22, max_vote_author_promote_rate);
+                op.props = p22;
             }
 #undef SET_PROP
 

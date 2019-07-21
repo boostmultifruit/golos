@@ -52,21 +52,21 @@ namespace golos { namespace chain {
 
         result_type operator()(const chain_properties_19& props) const {
             GOLOS_CHECK_PARAM(props, {
-                if (!_db.has_hardfork(STEEMIT_HARDFORK_0_21__1008)) {
+                if (!_db.has_hardfork(STEEMIT_HARDFORK_0_22__1008)) {
                     auto max_delegated_vesting_interest_rate = props.max_delegated_vesting_interest_rate;
-                    GOLOS_CHECK_VALUE_LE(max_delegated_vesting_interest_rate, STEEMIT_MAX_DELEGATED_VESTING_INTEREST_RATE_PRE_HF21);
+                    GOLOS_CHECK_VALUE_LE(max_delegated_vesting_interest_rate, STEEMIT_MAX_DELEGATED_VESTING_INTEREST_RATE_PRE_HF22);
                 }
-                if (!_db.has_hardfork(STEEMIT_HARDFORK_0_21__1009)) {
+                if (!_db.has_hardfork(STEEMIT_HARDFORK_0_22__1009)) {
                     auto min_curation_percent = props.min_curation_percent;
                     auto max_curation_percent = props.max_curation_percent;
-                    GOLOS_CHECK_VALUE_LEGE(min_curation_percent, STEEMIT_MIN_CURATION_PERCENT_PRE_HF21, max_curation_percent);
+                    GOLOS_CHECK_VALUE_LEGE(min_curation_percent, STEEMIT_MIN_CURATION_PERCENT_PRE_HF22, max_curation_percent);
                 }
             });
             _wprops = props;
         }
 
-        result_type operator()(const chain_properties_21& props) const {
-            ASSERT_REQ_HF(STEEMIT_HARDFORK_0_21, "chain_properties_21");
+        result_type operator()(const chain_properties_22& props) const {
+            ASSERT_REQ_HF(STEEMIT_HARDFORK_0_22, "chain_properties_22");
             _wprops = props;
         }
 
