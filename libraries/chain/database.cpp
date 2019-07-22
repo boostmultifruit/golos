@@ -1980,6 +1980,9 @@ namespace golos { namespace chain {
                      i >= 0; --i) {
                     total_delta += delta[i];
                 }
+                if (has_hardfork(STEEMIT_HARDFORK_0_22__820) && a.witness_vote_staked) {
+                    total_delta /= std::max(a.witnesses_voted_for, uint16_t(1));
+                }
                 adjust_witness_votes(a, total_delta);
             }
         }
@@ -1999,6 +2002,9 @@ namespace golos { namespace chain {
 
                 adjust_proxied_witness_votes(proxy, delta, depth + 1);
             } else {
+                if (has_hardfork(STEEMIT_HARDFORK_0_22__820) && a.witness_vote_staked) {
+                    delta /= std::max(a.witnesses_voted_for, uint16_t(1));
+                }
                 adjust_witness_votes(a, delta);
             }
         }
