@@ -2026,7 +2026,8 @@ namespace golos { namespace chain {
                 w.virtual_position += delta_pos;
 
                 w.virtual_last_update = wso.current_virtual_time;
-                w.votes += delta;
+                // With staked voting it can be negative because of inaccuracy of integer division. It should be >= 0.
+                w.votes = std::max(w.votes + delta, share_type(0));
                 FC_ASSERT(w.votes <=
                           get_dynamic_global_properties().total_vesting_shares.amount, "", ("w.votes", w.votes)("props", get_dynamic_global_properties().total_vesting_shares));
 
