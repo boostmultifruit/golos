@@ -268,6 +268,11 @@ namespace golos { namespace chain {
                     BOOST_CHECK(itr->vote->delegator_vote_interest_rates.empty());
                 }
 
+                if (db_.has_hardfork(STEEMIT_HARDFORK_0_22__1014)) {
+                    auto promote_reward = reward * itr->vote->author_promote_rate / STEEMIT_100_PERCENT;
+                    reward -= promote_reward;
+                }
+
                 total_vote_rewards_ += reward;
                 BOOST_REQUIRE_LE(total_vote_rewards_, vote_rewards_fund_);
 

@@ -676,6 +676,68 @@ namespace golos { namespace chain {
             operation_history_plugin* oh_plugin = nullptr;
         };
 
+        struct votes_extended_fixture : public clean_database_fixture {
+
+            void initialize(const plugin_options& opts = {}) {
+                database_fixture::initialize(opts);
+                open_database();
+                startup();
+            }
+
+            fc::ecc::private_key vote_key;
+            uint32_t current_voter = 0;
+            static const uint32_t cashout_blocks = STEEMIT_CASHOUT_WINDOW_SECONDS / STEEMIT_BLOCK_INTERVAL;
+
+            void generate_voters(uint32_t n) {
+                fc::ecc::private_key private_key = generate_private_key("test");
+                fc::ecc::private_key post_key = generate_private_key("test_post");
+                vote_key = post_key;
+                for (uint32_t i = 0; i < n; i++) {
+                    const auto name = "voter" + std::to_string(i);
+                    GOLOS_CHECK_NO_THROW(account_create(name, private_key.get_public_key(), post_key.get_public_key()));
+                }
+                generate_block();
+                validate_database();
+            }
+
+            void vote_sequence(const std::string& author, const std::string& permlink, uint32_t n_votes, uint32_t interval = 0) {
+                uint32_t end = current_voter + n_votes;
+                for (; current_voter < end; current_voter++) {
+                    const auto name = "voter" + std::to_string(current_voter);
+                    vote_operation op;
+                    op.voter = name;
+                    op.author = author;
+                    op.permlink = permlink;
+                    op.weight = STEEMIT_100_PERCENT;
+                    signed_transaction tx;
+                    GOLOS_CHECK_NO_THROW(push_tx_with_ops(tx, vote_key, op));
+                    if (interval > 0) {
+                        generate_blocks(interval);
+                    }
+                }
+                validate_database();
+            }
+
+            void post(const std::string& permlink = "post", const std::string& parent_permlink = "test") {
+                ACTOR(alice);
+                comment_operation op;
+                op.author = "alice";
+                op.permlink = permlink;
+                op.parent_author = parent_permlink == "test" ? "" : "alice";
+                op.parent_permlink = parent_permlink;
+                op.title = "foo";
+                op.body = "bar";
+                signed_transaction tx;
+                GOLOS_CHECK_NO_THROW(push_tx_with_ops(tx, alice_private_key, op));
+                validate_database();
+            }
+
+            uint32_t count_stored_votes() {
+                const auto n = db->get_index<golos::chain::comment_vote_index>().indices().size();
+                return n;
+            }
+        };
+
         namespace test {
             bool _push_block(database& db, const signed_block& b, uint32_t skip_flags = 0);
 
