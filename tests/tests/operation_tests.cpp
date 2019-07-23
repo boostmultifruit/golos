@@ -2304,7 +2304,8 @@ BOOST_FIXTURE_TEST_SUITE(operation_tests, clean_database_fixture)
             BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, proxy_op));
             generate_block();
 
-            BOOST_CHECK_GT(db->get_witness("witness0").votes, db->get_account("alice").vesting_shares.amount / 3);
+            BOOST_CHECK_EQUAL(db->get_account("alice").witness_vote_weight() / 3,
+                (db->get_account("alice").vesting_shares.amount + db->get_account("bob").vesting_shares.amount) / 3);
             APPROX_CHECK_EQUAL(db->get_witness("witness0").votes.value, db->get_account("alice").witness_vote_weight().value / 3, 1);
             APPROX_CHECK_EQUAL(db->get_witness("witness1").votes.value, db->get_account("alice").witness_vote_weight().value / 3, 1);
             APPROX_CHECK_EQUAL(db->get_witness("witness2").votes.value, db->get_account("alice").witness_vote_weight().value / 3, 1);
