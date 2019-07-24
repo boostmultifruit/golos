@@ -2364,7 +2364,16 @@ namespace golos { namespace chain {
             try {
                 share_type unclaimed_rewards = max_rewards;
 
-                if (c.total_vote_weight > 0 && c.comment.allow_curation_rewards) {
+                if (!c.comment.allow_curation_rewards) {
+                    modify(get_dynamic_global_properties(), [&](dynamic_global_property_object &props) {
+                        props.total_reward_fund_steem += unclaimed_rewards;
+                    });
+
+                    unclaimed_rewards = 0;
+                    return unclaimed_rewards;
+                }
+
+                if (c.total_vote_weight > 0) {
                     uint128_t total_weight(c.total_vote_weight);
                     uint128_t auction_window_reward = uint128_t(max_rewards.value) * c.auction_window_weight / total_weight;
 
@@ -2408,15 +2417,8 @@ namespace golos { namespace chain {
                         unclaimed_rewards = 0;
                     }
                 }
-                if (!c.comment.allow_curation_rewards) {
-                    modify(get_dynamic_global_properties(), [&](dynamic_global_property_object &props) {
-                        props.total_reward_fund_steem += unclaimed_rewards;
-                    });
-
-                    unclaimed_rewards = 0;
-                }
                 // Case: auction window destination is reward fund or there are not curator which can get the auw reward
-                else if (c.comment.auction_window_reward_destination != protocol::to_author && unclaimed_rewards > 0) {
+                if (c.comment.auction_window_reward_destination != protocol::to_author && unclaimed_rewards > 0) {
                     push_virtual_operation(auction_window_reward_operation(asset(unclaimed_rewards, STEEM_SYMBOL), c.comment.author, to_string(c.comment.permlink)));
                     modify(get_dynamic_global_properties(), [&](dynamic_global_property_object &props) {
                         props.total_reward_fund_steem += asset(unclaimed_rewards, STEEM_SYMBOL);
