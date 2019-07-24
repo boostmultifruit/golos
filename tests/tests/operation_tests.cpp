@@ -7844,7 +7844,202 @@ BOOST_FIXTURE_TEST_SUITE(operation_tests, clean_database_fixture)
 
     BOOST_AUTO_TEST_SUITE_END() // comment_curation_rewards_percent
 
-BOOST_AUTO_TEST_SUITE_END()
+    BOOST_AUTO_TEST_SUITE(vote_options) // vote_options
+
+    BOOST_AUTO_TEST_CASE(vote_options_authorities) { try {
+        BOOST_TEST_MESSAGE("Testing: vote_options_authorities");
+
+        vote_options_operation op;
+        op.voter = "bob";
+        op.author = "alice";
+        op.permlink = "test";
+        CHECK_OP_AUTHS(op, account_name_set(), account_name_set(), account_name_set({"bob"}));
+    } FC_LOG_AND_RETHROW() }
+
+    BOOST_AUTO_TEST_CASE(vote_options_validate) { try {
+        BOOST_TEST_MESSAGE("Testing: vote_options_validate");
+
+        BOOST_TEST_MESSAGE("-- Normal case");
+
+        vote_options_operation op;
+        op.voter = "bob";
+        op.author = "alice";
+        op.permlink = "test";
+        CHECK_OP_VALID(op);
+
+        BOOST_TEST_MESSAGE("-- Incorrect account or permlink case");
+
+        CHECK_PARAM_INVALID(op, voter, "");
+        CHECK_PARAM_INVALID(op, author, "");
+        CHECK_PARAM_INVALID(op, permlink, std::string(STEEMIT_MAX_PERMLINK_LENGTH+1, ' '));
+
+    } FC_LOG_AND_RETHROW() }
+
+    BOOST_AUTO_TEST_CASE(author_promote_rate_validate) { try {
+        BOOST_TEST_MESSAGE("Testing: author_promote_rate_validate");
+
+        vote_options_operation op;
+        op.voter = "bob";
+        op.author = "alice";
+        op.permlink = "test";
+
+        BOOST_TEST_MESSAGE("-- Normal case with author_promote_rate");
+
+        vote_options_extensions_type op_exts;
+        op_exts.insert(vote_author_promote_rate(0));
+        CHECK_PARAM_VALID(op, extensions, op_exts);
+
+        op_exts.clear();
+        op_exts.insert(vote_author_promote_rate(STEEMIT_100_PERCENT));
+        CHECK_PARAM_VALID(op, extensions, op_exts);
+
+        BOOST_TEST_MESSAGE("-- author_promote_rate < 0");
+
+        op.extensions.clear();
+        op.extensions.insert(vote_author_promote_rate(-1));
+        GOLOS_CHECK_ERROR_PROPS(op.validate(),
+            CHECK_ERROR(invalid_parameter, "rate"));
+
+        BOOST_TEST_MESSAGE("-- author_promote_rate > 100%");
+
+        op.extensions.clear();
+        op.extensions.insert(vote_author_promote_rate(STEEMIT_100_PERCENT+1));
+        GOLOS_CHECK_ERROR_PROPS(op.validate(),
+            CHECK_ERROR(invalid_parameter, "rate"));
+
+    } FC_LOG_AND_RETHROW() }
+
+    BOOST_AUTO_TEST_CASE(vote_options_apply) { try {
+        BOOST_TEST_MESSAGE("Testing: vote_options_apply");
+
+        signed_transaction tx;
+        ACTORS((alice)(bob))
+        fund("alice", 10000);
+        vest("alice", 10000);
+        fund("bob", 10000);
+        vest("bob", 10000);
+        generate_block();
+
+        BOOST_TEST_MESSAGE("--- Testing without comment");
+
+        vote_options_operation op;
+        op.voter = "bob";
+        op.author = "alice";
+        op.permlink = "alice-test";
+
+        GOLOS_CHECK_ERROR_MISSING(comment, make_comment_id("alice", "alice-test"), bob_private_key, op);
+
+        BOOST_TEST_MESSAGE("--- Creating comment");
+
+        comment_create("alice", alice_private_key, "alice-test", "", "alice-test");
+        generate_block();
+
+        BOOST_TEST_MESSAGE("--- Testing without vote");
+
+        GOLOS_CHECK_ERROR_MISSING(comment_vote_object, fc::mutable_variant_object()("voter",op.voter)("author",op.author)("permlink",op.permlink),
+            bob_private_key, op);
+
+        BOOST_TEST_MESSAGE("--- Voting for comment");
+
+        vote_operation vote_op;
+        vote_op.voter = "bob";
+        vote_op.author = "alice";
+        vote_op.permlink = "alice-test";
+        vote_op.weight = 1000;
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, vote_op));
+        generate_block();
+
+        BOOST_TEST_MESSAGE("--- Normal call without extensions");
+
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+        generate_block();
+
+        validate_database();
+    } FC_LOG_AND_RETHROW() }
+
+    BOOST_AUTO_TEST_CASE(author_promote_rate_apply) { try {
+        BOOST_TEST_MESSAGE("Testing: author_promote_rate_apply");
+
+        signed_transaction tx;
+        ACTORS((alice)(bob))
+        fund("alice", 10000);
+        vest("alice", 10000);
+        fund("bob", 10000);
+        vest("bob", 10000);
+        generate_block();
+
+        auto& wso = db->get_witness_schedule_object();
+        BOOST_CHECK_EQUAL(wso.median_props.min_vote_author_promote_rate, GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE);
+        BOOST_CHECK_EQUAL(wso.median_props.max_vote_author_promote_rate, GOLOS_MAX_VOTE_AUTHOR_PROMOTE_RATE);
+
+        set_price_feed(price(ASSET("1.000 GOLOS"), ASSET("1.000 GBG")));
+
+        BOOST_TEST_MESSAGE("--- Creating comment and voting for it");
+
+        comment_create("alice", alice_private_key, "alice-test", "", "alice-test");
+        generate_block();
+        vote_operation vote_op;
+        vote_op.voter = "bob";
+        vote_op.author = "alice";
+        vote_op.permlink = "alice-test";
+        vote_op.weight = 1000;
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, vote_op));
+        generate_block();
+
+        {
+            auto vote = db->get<comment_vote_object, by_comment_voter>(std::make_tuple(db->get_comment("alice", string("alice-test")).id, db->get_account("bob").id));
+            BOOST_CHECK_EQUAL(vote.author_promote_rate, wso.median_props.min_vote_author_promote_rate);
+        }
+
+        BOOST_TEST_MESSAGE("--- Testing with normal value");
+
+        vote_options_operation op;
+        op.voter = "bob";
+        op.author = "alice";
+        op.permlink = "alice-test";
+        vote_author_promote_rate vapr(25 * STEEMIT_1_PERCENT);
+        op.extensions.insert(vapr);
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+        generate_block();
+        {
+            auto vote = db->get<comment_vote_object, by_comment_voter>(std::make_tuple(db->get_comment("alice", string("alice-test")).id, db->get_account("bob").id));
+            BOOST_CHECK_EQUAL(vote.author_promote_rate, vapr.rate);
+        }
+
+        BOOST_TEST_MESSAGE("--- Checking that calling without extensions don't affect value");
+
+        op.extensions.clear();
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+        generate_block();
+        {
+            auto vote = db->get<comment_vote_object, by_comment_voter>(std::make_tuple(db->get_comment("alice", string("alice-test")).id, db->get_account("bob").id));
+            BOOST_CHECK_EQUAL(vote.author_promote_rate, vapr.rate);
+        }
+
+        BOOST_TEST_MESSAGE("--- Starting rewards");
+
+        generate_blocks(db->get_comment("alice", string("alice-test")).cashout_time - STEEMIT_BLOCK_INTERVAL, false);
+
+        comment_fund total_comment_fund(*db);
+        comment_reward alice_comment_reward(*db, total_comment_fund, db->get_comment("alice", string("alice-test")));
+
+        generate_block();
+
+        BOOST_TEST_MESSAGE("--- Checking rewards");
+
+        auto& bob_account = db->get_account("bob");
+        auto cur_op = get_last_operations<curation_reward_operation>(1)[0];
+        BOOST_CHECK_EQUAL(cur_op.reward, alice_comment_reward.vote_payout(bob_account));
+        auto author_op = get_last_operations<author_reward_operation>(1)[0];
+        BOOST_CHECK_EQUAL(author_op.sbd_payout, alice_comment_reward.sbd_payout());
+        BOOST_CHECK_EQUAL(author_op.vesting_payout, alice_comment_reward.vesting_payout());
+
+        validate_database();
+    } FC_LOG_AND_RETHROW() }
+
+    BOOST_AUTO_TEST_SUITE_END() // vote_options
+
+BOOST_AUTO_TEST_SUITE_END() // operation_tests
 
 
 struct votes_extended_fixture : public golos::chain::clean_database_fixture {
