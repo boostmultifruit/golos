@@ -2,6 +2,7 @@
 
 #include <golos/chain/global_property_object.hpp>
 #include <golos/chain/node_property_object.hpp>
+#include <golos/chain/worker_objects.hpp>
 #include <golos/chain/fork_database.hpp>
 #include <golos/chain/block_log.hpp>
 #include <golos/chain/hardfork.hpp>
@@ -125,6 +126,8 @@ namespace golos { namespace chain {
             void set_store_memo_in_savings_withdraws(bool store_memo_in_savings_withdraws);
             bool store_memo_in_savings_withdraws() const;
 
+            void set_clear_old_worker_approves(bool clear_old_worker_approves);
+
             /**
              * @brief wipe Delete database from disk, and potentially the raw chain as well.
              * @param include_blocks If true, delete the raw chain as well as the database.
@@ -178,6 +181,14 @@ namespace golos { namespace chain {
             const proposal_object& get_proposal(const account_name_type&, const std::string&) const;
             const proposal_object* find_proposal(const account_name_type&, const std::string&) const;
             void        throw_if_exists_proposal(const account_name_type&, const std::string&) const;
+
+            const worker_proposal_object& get_worker_proposal(const comment_id_type& post) const;
+            const worker_proposal_object* find_worker_proposal(const comment_id_type& post) const;
+
+            const worker_techspec_object& get_worker_techspec(const comment_id_type& post) const;
+            const worker_techspec_object* find_worker_techspec(const comment_id_type& post) const;
+            const worker_techspec_object& get_worker_result(const comment_id_type& post) const;
+            const worker_techspec_object* find_worker_result(const comment_id_type& post) const;
 
             const comment_object &get_comment(const account_name_type &author, const shared_string &permlink) const;
 
@@ -268,6 +279,13 @@ namespace golos { namespace chain {
 
             void clear_expired_proposals();
 
+            void clear_worker_techspec_approves(const worker_techspec_object& wto);
+            void clear_worker_payment_approves(const worker_techspec_object& wto);
+
+            void close_worker_techspec(const worker_techspec_object& wto, worker_techspec_state closed_state);
+
+            void clear_expired_worker_objects();
+
             signed_block generate_block(
                     const fc::time_point_sec when,
                     const account_name_type &witness_owner,
@@ -296,7 +314,7 @@ namespace golos { namespace chain {
 
             void notify_post_apply_operation(const operation_notification &note);
 
-            inline const void push_virtual_operation(const operation &op, bool force = false); // vops are not needed for low mem. Force will push them on low mem.
+            const void push_virtual_operation(const operation &op, bool force = false); // vops are not needed for low mem. Force will push them on low mem.
             void notify_applied_block(const signed_block &block);
 
             void notify_on_pending_transaction(const signed_transaction &tx);
@@ -442,6 +460,13 @@ namespace golos { namespace chain {
             void cashout_comment_helper(const comment_object &comment);
 
             void process_comment_cashout();
+
+            flat_map<worker_techspec_approve_state, int32_t> count_worker_techspec_approves(const comment_id_type& post);
+            flat_map<worker_techspec_approve_state, int32_t> count_worker_payment_approves(const comment_id_type& post);
+
+            asset calculate_worker_techspec_consumption_per_day(const worker_techspec_object& wto);
+
+            void process_worker_cashout();
 
             void process_funds();
 
@@ -617,7 +642,7 @@ namespace golos { namespace chain {
 
             bool _resize(uint32_t block_num);
 
-            uint64_t pay_curator(const comment_vote_object& cvo, const uint64_t& claim, const account_name_type& author, const std::string& permlink);
+            uint64_t pay_curator(const comment_vote_object& cvo, uint64_t claim, const account_name_type& author, const std::string& permlink);
 
             void adjust_sbd_balance(const account_object &a, const asset &delta);
 
@@ -666,6 +691,8 @@ namespace golos { namespace chain {
             std::vector<std::string> _accounts_to_store_metadata;
 
             bool _store_memo_in_savings_withdraws = true;
+
+            bool _clear_old_worker_approves = false;
 
             flat_map<std::string, std::shared_ptr<custom_operation_interpreter>> _custom_operation_interpreters;
             std::string _json_schema;

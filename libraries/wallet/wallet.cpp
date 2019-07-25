@@ -351,6 +351,15 @@ namespace golos { namespace wallet {
                         result["max_curation_percent"] = median_props.max_curation_percent;
                         result["curation_reward_curve"] = median_props.curation_reward_curve;
                     }
+                    if (hf >= hardfork_version(0, STEEMIT_HARDFORK_0_22)) {
+                        result["worker_from_content_fund_percent"] = median_props.worker_from_content_fund_percent;
+                        result["worker_from_vesting_fund_percent"] = median_props.worker_from_vesting_fund_percent;
+                        result["worker_from_witness_fund_percent"] = median_props.worker_from_witness_fund_percent;
+                        result["worker_techspec_approve_term_sec"] = median_props.worker_techspec_approve_term_sec;
+                        result["worker_result_approve_term_sec"] = median_props.worker_result_approve_term_sec;
+                        result["min_vote_author_promote_rate"] = median_props.min_vote_author_promote_rate;
+                        result["max_vote_author_promote_rate"] = median_props.max_vote_author_promote_rate;
+                    }
 
                     return result;
                 }
@@ -2152,7 +2161,7 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
             return my->sign_transaction(tx, broadcast);
         }
 
-        annotated_signed_transaction wallet_api::delegate_vesting_shares_with_interest(string delegator, string delegatee, asset vesting_shares, uint16_t interest_rate, bool broadcast) {
+        annotated_signed_transaction wallet_api::delegate_vesting_shares_with_interest(string delegator, string delegatee, asset vesting_shares, uint16_t interest_rate, delegator_payout_strategy payout_strategy, bool broadcast) {
             WALLET_CHECK_UNLOCKED();
 
             delegate_vesting_shares_with_interest_operation op;
@@ -2160,6 +2169,15 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
             op.delegatee = delegatee;
             op.vesting_shares = vesting_shares;
             op.interest_rate = interest_rate;
+
+            auto hf = my->_remote_database_api->get_hardfork_version();
+            if (hf >= hardfork_version(0, STEEMIT_HARDFORK_0_22)) {
+                delegate_delegator_payout_strategy ddps;
+                ddps.strategy = payout_strategy;
+                op.extensions.insert(ddps);
+            } else {
+                FC_ASSERT(payout_strategy == delegator_payout_strategy::to_delegator, "Before HF22 enabled only to_delegator payout strategy");
+            }
 
             signed_transaction tx;
             tx.operations.push_back(op);
@@ -2239,7 +2257,7 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
             signed_transaction tx;
             chain_properties_update_operation op;
             chain_api_properties ap;
-            chain_properties_18 p;
+            chain_properties_19 p;
 
             // copy defaults in case of missing witness object
             ap.account_creation_fee = p.account_creation_fee;
@@ -2261,37 +2279,40 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
             SET_PROP(p, create_account_min_delegation);
             SET_PROP(p, create_account_delegation_time);
             SET_PROP(p, min_delegation);
+            SET_PROP(p, max_referral_interest_rate);
+            SET_PROP(p, max_referral_term_sec);
+            SET_PROP(p, min_referral_break_fee);
+            SET_PROP(p, max_referral_break_fee);
+            SET_PROP(p, posts_window);
+            SET_PROP(p, posts_per_window);
+            SET_PROP(p, comments_window);
+            SET_PROP(p, comments_per_window);
+            SET_PROP(p, votes_window);
+            SET_PROP(p, votes_per_window);
+            SET_PROP(p, auction_window_size);
+            SET_PROP(p, max_delegated_vesting_interest_rate);
+            SET_PROP(p, custom_ops_bandwidth_multiplier);
+            SET_PROP(p, min_curation_percent);
+            SET_PROP(p, max_curation_percent);
+            SET_PROP(p, curation_reward_curve);
+            SET_PROP(p, allow_distribute_auction_reward);
+            SET_PROP(p, allow_return_auction_reward_to_fund);
             op.props = p;
             auto hf = my->_remote_database_api->get_hardfork_version();
-            if (hf >= hardfork_version(0, STEEMIT_HARDFORK_0_19) || !!props.max_referral_interest_rate
-                    || !!props.max_referral_term_sec || !!props.min_referral_break_fee || !!props.max_referral_break_fee
-                    || !!props.posts_window || !!props.posts_per_window
-                    || !!props.comments_window || !!props.comments_per_window
-                    || !!props.votes_window || !!props.votes_per_window
-                    || !!props.auction_window_size || !!props.max_delegated_vesting_interest_rate || !!props.custom_ops_bandwidth_multiplier
-                    || !!props.min_curation_percent || !!props.max_curation_percent || !!props.curation_reward_curve
-                    || !!props.allow_return_auction_reward_to_fund || !!props.allow_distribute_auction_reward) {
-                chain_properties_19 p19;
-                p19 = p;
-                SET_PROP(p19, max_referral_interest_rate);
-                SET_PROP(p19, max_referral_term_sec);
-                SET_PROP(p19, min_referral_break_fee);
-                SET_PROP(p19, max_referral_break_fee);
-                SET_PROP(p19, posts_window);
-                SET_PROP(p19, posts_per_window);
-                SET_PROP(p19, comments_window);
-                SET_PROP(p19, comments_per_window);
-                SET_PROP(p19, votes_window);
-                SET_PROP(p19, votes_per_window);
-                SET_PROP(p19, auction_window_size);
-                SET_PROP(p19, max_delegated_vesting_interest_rate);
-                SET_PROP(p19, custom_ops_bandwidth_multiplier);
-                SET_PROP(p19, min_curation_percent);
-                SET_PROP(p19, max_curation_percent);
-                SET_PROP(p19, curation_reward_curve);
-                SET_PROP(p19, allow_distribute_auction_reward);
-                SET_PROP(p19, allow_return_auction_reward_to_fund);
-                op.props = p19;
+            if (hf >= hardfork_version(0, STEEMIT_HARDFORK_0_22) || !!props.worker_from_content_fund_percent
+                    || !!props.worker_from_vesting_fund_percent || !!props.worker_from_witness_fund_percent
+                    || !!props.worker_techspec_approve_term_sec || !!props.worker_result_approve_term_sec
+                    || !!props.min_vote_author_promote_rate || !!props.max_vote_author_promote_rate) {
+                chain_properties_22 p22;
+                p22 = p;
+                SET_PROP(p22, worker_from_content_fund_percent);
+                SET_PROP(p22, worker_from_vesting_fund_percent);
+                SET_PROP(p22, worker_from_witness_fund_percent);
+                SET_PROP(p22, worker_techspec_approve_term_sec);
+                SET_PROP(p22, worker_result_approve_term_sec);
+                SET_PROP(p22, min_vote_author_promote_rate);
+                SET_PROP(p22, max_vote_author_promote_rate);
+                op.props = p22;
             }
 #undef SET_PROP
 
@@ -3126,6 +3147,162 @@ fc::ecc::private_key wallet_api::derive_private_key(const std::string& prefix_st
             trx.validate();
 
             return my->sign_transaction( trx, broadcast );
+        }
+
+        annotated_signed_transaction wallet_api::worker_proposal(
+                const std::string& author, const std::string& permlink, worker_proposal_type type, bool broadcast
+        ) {
+            WALLET_CHECK_UNLOCKED();
+
+            worker_proposal_operation op;
+            op.author = author;
+            op.permlink = permlink;
+            op.type = type;
+
+            signed_transaction tx;
+            tx.operations.push_back(op);
+            tx.validate();
+            return sign_transaction(tx, broadcast);
+        }
+
+        annotated_signed_transaction wallet_api::delete_worker_proposal(
+                const std::string& author, const std::string& permlink, bool broadcast
+        ) {
+            WALLET_CHECK_UNLOCKED();
+
+            worker_proposal_delete_operation op;
+            op.author = author;
+            op.permlink = permlink;
+
+            signed_transaction tx;
+            tx.operations.push_back(op);
+            tx.validate();
+            return my->sign_transaction(tx, broadcast);
+        }
+
+        annotated_signed_transaction wallet_api::worker_techspec(
+                const std::string& author, const std::string& permlink,
+                const std::string& worker_proposal_author, const std::string& worker_proposal_permlink,
+                const asset& specification_cost, const asset& development_cost, const std::string& worker,
+                uint16_t payments_count, uint32_t payments_interval, bool broadcast
+        ) {
+            WALLET_CHECK_UNLOCKED();
+
+            worker_techspec_operation op;
+            op.author = author;
+            op.permlink = permlink;
+            op.worker_proposal_author = worker_proposal_author;
+            op.worker_proposal_permlink = worker_proposal_permlink;
+            op.specification_cost = specification_cost;
+            op.development_cost = development_cost;
+            op.worker = worker;
+            op.payments_count = payments_count;
+            op.payments_interval = payments_interval;
+
+            signed_transaction tx;
+            tx.operations.push_back(op);
+            tx.validate();
+            return sign_transaction(tx, broadcast);
+        }
+
+        annotated_signed_transaction wallet_api::delete_worker_techspec(
+                const std::string& author, const std::string& permlink, bool broadcast
+        ) {
+            WALLET_CHECK_UNLOCKED();
+
+            worker_techspec_delete_operation op;
+            op.author = author;
+            op.permlink = permlink;
+
+            signed_transaction tx;
+            tx.operations.push_back(op);
+            tx.validate();
+            return my->sign_transaction(tx, broadcast);
+        }
+
+        annotated_signed_transaction wallet_api::approve_worker_techspec(
+                const std::string& approver, const std::string& author, const std::string& permlink,
+                worker_techspec_approve_state state, bool broadcast
+        ) {
+            WALLET_CHECK_UNLOCKED();
+
+            worker_techspec_approve_operation op;
+            op.approver = approver;
+            op.author = author;
+            op.permlink = permlink;
+            op.state = state;
+
+            signed_transaction tx;
+            tx.operations.push_back(op);
+            tx.validate();
+            return my->sign_transaction(tx, broadcast);
+        }
+
+        annotated_signed_transaction wallet_api::assign_worker(
+                const std::string& assigner, const std::string& worker_techspec_author,
+                const std::string& worker_techspec_permlink, const std::string& worker, bool broadcast
+        ) {
+            WALLET_CHECK_UNLOCKED();
+
+            worker_assign_operation op;
+            op.assigner = assigner;
+            op.worker_techspec_author = worker_techspec_author;
+            op.worker_techspec_permlink = worker_techspec_permlink;
+            op.worker = worker;
+
+            signed_transaction tx;
+            tx.operations.push_back(op);
+            tx.validate();
+            return my->sign_transaction(tx, broadcast);
+        }
+
+        annotated_signed_transaction wallet_api::worker_result(
+                const std::string& author, const std::string& permlink, const std::string& worker_techspec_permlink, bool broadcast
+        ) {
+            WALLET_CHECK_UNLOCKED();
+
+            worker_result_operation op;
+            op.author = author;
+            op.permlink = permlink;
+            op.worker_techspec_permlink = worker_techspec_permlink;
+
+            signed_transaction tx;
+            tx.operations.push_back(op);
+            tx.validate();
+            return my->sign_transaction(tx, broadcast);
+        }
+
+        annotated_signed_transaction wallet_api::delete_worker_result(
+                const std::string& author, const std::string& permlink, bool broadcast
+        ) {
+            WALLET_CHECK_UNLOCKED();
+
+            worker_result_delete_operation op;
+            op.author = author;
+            op.permlink = permlink;
+
+            signed_transaction tx;
+            tx.operations.push_back(op);
+            tx.validate();
+            return my->sign_transaction(tx, broadcast);
+        }
+
+        annotated_signed_transaction wallet_api::approve_worker_payment(
+                const std::string& approver, const std::string& worker_techspec_author, const std::string& worker_techspec_permlink,
+                worker_techspec_approve_state state, bool broadcast
+        ) {
+            WALLET_CHECK_UNLOCKED();
+
+            worker_payment_approve_operation op;
+            op.approver = approver;
+            op.worker_techspec_author = worker_techspec_author;
+            op.worker_techspec_permlink = worker_techspec_permlink;
+            op.state = state;
+
+            signed_transaction tx;
+            tx.operations.push_back(op);
+            tx.validate();
+            return my->sign_transaction(tx, broadcast);
         }
 
 } } // golos::wallet

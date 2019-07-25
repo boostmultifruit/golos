@@ -104,7 +104,9 @@ public:
     fc::array<share_type, STEEMIT_MAX_PROXY_RECURSION_DEPTH> proxied_vsf_votes;// = std::vector<share_type>( STEEMIT_MAX_PROXY_RECURSION_DEPTH, 0 ); ///< the total VFS votes proxied to this account
 
     uint16_t witnesses_voted_for = 0;
+    bool witness_vote_staked = false;
 
+    time_point_sec last_comment;
     time_point_sec last_post;
 
     account_name_type referrer_account;
@@ -208,7 +210,7 @@ public:
     account_name_type delegatee;
     asset vesting_shares;
     uint16_t interest_rate = 0;
-    protocol::delegator_payout_strategy payout_strategy = protocol::to_delegator;
+    protocol::delegator_payout_strategy payout_strategy = protocol::delegator_payout_strategy::to_delegator;
     time_point_sec min_delegation_time;
 };
 
@@ -521,8 +523,8 @@ FC_REFLECT((golos::chain::account_object),
     (curation_rewards)
     (delegation_rewards)
     (posting_rewards)
-    (proxied_vsf_votes)(witnesses_voted_for)
-    (last_post)
+    (proxied_vsf_votes)(witnesses_voted_for)(witness_vote_staked)
+    (last_comment)(last_post)
     (referrer_account)(referrer_interest_rate)(referral_end_date)(referral_break_fee)
 )
 CHAINBASE_SET_INDEX_TYPE(golos::chain::account_object, golos::chain::account_index)
@@ -539,7 +541,7 @@ CHAINBASE_SET_INDEX_TYPE(golos::chain::account_bandwidth_object, golos::chain::a
 FC_REFLECT((golos::chain::account_metadata_object), (id)(account)(json_metadata))
 CHAINBASE_SET_INDEX_TYPE(golos::chain::account_metadata_object, golos::chain::account_metadata_index)
 
-FC_REFLECT((golos::chain::vesting_delegation_object), (id)(delegator)(delegatee)(vesting_shares)(interest_rate)(min_delegation_time))
+FC_REFLECT((golos::chain::vesting_delegation_object), (id)(delegator)(delegatee)(vesting_shares)(interest_rate)(payout_strategy)(min_delegation_time))
 CHAINBASE_SET_INDEX_TYPE(golos::chain::vesting_delegation_object, golos::chain::vesting_delegation_index)
 
 FC_REFLECT((golos::chain::vesting_delegation_expiration_object), (id)(delegator)(vesting_shares)(expiration))

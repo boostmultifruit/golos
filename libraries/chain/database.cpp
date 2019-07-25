@@ -20,7 +20,6 @@
 #include <golos/chain/operation_notification.hpp>
 #include <golos/chain/proposal_object.hpp>
 #include <golos/chain/curation_info.hpp>
-
 #include <fc/smart_ref_impl.hpp>
 
 #include <fc/container/deque.hpp>
@@ -1312,7 +1311,7 @@ namespace golos { namespace chain {
             }
         }
 
-        inline const void database::push_virtual_operation(const operation &op, bool force) {
+        const void database::push_virtual_operation(const operation &op, bool force) {
             if (!force && _skip_virtual_ops ) {
                 return;
             }
@@ -1932,7 +1931,7 @@ namespace golos { namespace chain {
                 active.push_back(&get_witness(wso.current_shuffled_witnesses[i]));
             }
 
-            chain_properties_19 median_props;
+            chain_properties_22 median_props;
 
             auto median = active.size() / 2;
 
@@ -1991,6 +1990,12 @@ namespace golos { namespace chain {
             calc_median(&chain_properties_19::curation_reward_curve);
             calc_median(&chain_properties_19::allow_distribute_auction_reward);
             calc_median(&chain_properties_19::allow_return_auction_reward_to_fund);
+            calc_median(&chain_properties_22::worker_from_content_fund_percent);
+            calc_median(&chain_properties_22::worker_from_vesting_fund_percent);
+            calc_median(&chain_properties_22::worker_from_witness_fund_percent);
+            calc_median(&chain_properties_22::worker_techspec_approve_term_sec);
+            calc_median(&chain_properties_22::worker_result_approve_term_sec);
+            calc_median_min_max(&chain_properties_22::min_vote_author_promote_rate, &chain_properties_22::max_vote_author_promote_rate);
 
             const auto& dynamic_global_properties = get_dynamic_global_properties();
 
@@ -2031,6 +2036,9 @@ namespace golos { namespace chain {
                      i >= 0; --i) {
                     total_delta += delta[i];
                 }
+                if (has_hardfork(STEEMIT_HARDFORK_0_22__820) && a.witness_vote_staked) {
+                    total_delta /= std::max(a.witnesses_voted_for, uint16_t(1));
+                }
                 adjust_witness_votes(a, total_delta);
             }
         }
@@ -2050,6 +2058,9 @@ namespace golos { namespace chain {
 
                 adjust_proxied_witness_votes(proxy, delta, depth + 1);
             } else {
+                if (has_hardfork(STEEMIT_HARDFORK_0_22__820) && a.witness_vote_staked) {
+                    delta /= std::max(a.witnesses_voted_for, uint16_t(1));
+                }
                 adjust_witness_votes(a, delta);
             }
         }
@@ -2071,7 +2082,8 @@ namespace golos { namespace chain {
                 w.virtual_position += delta_pos;
 
                 w.virtual_last_update = wso.current_virtual_time;
-                w.votes += delta;
+                // With staked voting it can be negative because of inaccuracy of integer division. It should be >= 0.
+                w.votes = std::max(w.votes + delta, share_type(0));
                 FC_ASSERT(w.votes <=
                           get_dynamic_global_properties().total_vesting_shares.amount, "", ("w.votes", w.votes)("props", get_dynamic_global_properties().total_vesting_shares));
 
@@ -2359,7 +2371,7 @@ namespace golos { namespace chain {
 
                 const auto& delegator = get_account(dvir.account);
                 asset delegator_vesting = create_vesting(delegator, asset(delegator_claim, STEEM_SYMBOL));
-                if (dvir.payout_strategy == to_delegated_vesting) {
+                if (dvir.payout_strategy == delegator_payout_strategy::to_delegated_vesting) {
                     auto vdo_itr = vdo_idx.find(std::make_tuple(delegatee.name, dvir.account));
                     if (vdo_itr != vdo_idx.end()) {
                         modify(delegator, [&](account_object& a) {
@@ -2383,23 +2395,22 @@ namespace golos { namespace chain {
             return delegators_reward;
         }
 
-        uint64_t database::pay_curator(const comment_vote_object& cvo, const uint64_t& claim, const account_name_type& author, const std::string& permlink) {
+        uint64_t database::pay_curator(const comment_vote_object& cvo, uint64_t claim, const account_name_type& author, const std::string& permlink) {
             const auto &voter = get(cvo.voter);
-            auto voter_claim = claim;
 
             if (has_hardfork(STEEMIT_HARDFORK_0_19__756)) {
-                voter_claim -= pay_delegators(voter, cvo, claim);
+                claim -= pay_delegators(voter, cvo, claim);
             }
 
-            auto voter_reward = create_vesting(voter, asset(voter_claim, STEEM_SYMBOL));
+            auto voter_reward = create_vesting(voter, asset(claim, STEEM_SYMBOL));
 
-            push_virtual_operation(curation_reward_operation(voter.name, voter_reward, author, permlink, asset(voter_claim, STEEM_SYMBOL)));
+            push_virtual_operation(curation_reward_operation(voter.name, voter_reward, author, permlink, asset(claim, STEEM_SYMBOL)));
 
             modify(voter, [&](account_object &a) {
-                a.curation_rewards += voter_claim;
+                a.curation_rewards += claim;
             });
 
-            return voter_claim;
+            return claim;
         }
 /**
  *  This method will iterate through all comment_vote_objects and give them
@@ -2411,7 +2422,16 @@ namespace golos { namespace chain {
             try {
                 share_type unclaimed_rewards = max_rewards;
 
-                if (c.total_vote_weight > 0 && c.comment.allow_curation_rewards) {
+                if (!c.comment.allow_curation_rewards) {
+                    modify(get_dynamic_global_properties(), [&](dynamic_global_property_object &props) {
+                        props.total_reward_fund_steem += unclaimed_rewards;
+                    });
+
+                    unclaimed_rewards = 0;
+                    return unclaimed_rewards;
+                }
+
+                if (c.total_vote_weight > 0) {
                     uint128_t total_weight(c.total_vote_weight);
                     uint128_t auction_window_reward = uint128_t(max_rewards.value) * c.auction_window_weight / total_weight;
 
@@ -2421,6 +2441,10 @@ namespace golos { namespace chain {
                     for (auto itr = c.vote_list.begin(); c.vote_list.end() != itr; ++itr) {
                         uint128_t weight(itr->weight);
                         uint64_t claim = ((max_rewards.value * weight) / total_weight).to_uint64();
+                        if (has_hardfork(STEEMIT_HARDFORK_0_22__1014)) {
+                            claim -= (uint128_t(claim) * (*itr->vote).author_promote_rate / STEEMIT_100_PERCENT).to_uint64();
+                        }
+
                         // to_curators case
                         if (c.comment.auction_window_reward_destination == protocol::to_curators &&
                             itr->vote->auction_time == c.comment.auction_window_size
@@ -2451,15 +2475,8 @@ namespace golos { namespace chain {
                         unclaimed_rewards = 0;
                     }
                 }
-                if (!c.comment.allow_curation_rewards) {
-                    modify(get_dynamic_global_properties(), [&](dynamic_global_property_object &props) {
-                        props.total_reward_fund_steem += unclaimed_rewards;
-                    });
-
-                    unclaimed_rewards = 0;
-                }
                 // Case: auction window destination is reward fund or there are not curator which can get the auw reward
-                else if (c.comment.auction_window_reward_destination != protocol::to_author && unclaimed_rewards > 0) {
+                if (c.comment.auction_window_reward_destination != protocol::to_author && unclaimed_rewards > 0) {
                     push_virtual_operation(auction_window_reward_operation(asset(unclaimed_rewards, STEEM_SYMBOL), c.comment.author, to_string(c.comment.permlink)));
                     modify(get_dynamic_global_properties(), [&](dynamic_global_property_object &props) {
                         props.total_reward_fund_steem += asset(unclaimed_rewards, STEEM_SYMBOL);
@@ -2625,9 +2642,17 @@ namespace golos { namespace chain {
        /**
         *  At a start overall the network has an inflation rate of 15.15% of virtual golos per year.
         *  Each year the inflation rate is reduced by 0.42% and stops at 0.95% of virtual golos per year in 33 years.
+        *
+        *  Before HF22:
         *  66.67% of inflation is directed to content reward pool
         *  26.67% of inflation is directed to vesting fund
         *  6.66% of inflation is directed to witness pay
+        *
+        *  After HF22:
+        *  60.00% of inflation is directed to content reward pool
+        *  24.00% of inflation is directed to vesting fund
+        *  6.00% of inflation is directed to witness pay
+        *  10.00% of inflation is directed to worker pay
         *
         *  This method pays out vesting, reward shares and witnesses every block.
         */
@@ -2663,6 +2688,22 @@ namespace golos { namespace chain {
                         (new_steem * STEEMIT_VESTING_FUND_PERCENT) /
                         STEEMIT_100_PERCENT; /// 26.67% to vesting fund
                 auto witness_reward = new_steem - content_reward - vesting_reward; /// Remaining 6.66% to witness pay
+
+                fc::safe<int64_t> worker_reward = 0;
+                if (has_hardfork(STEEMIT_HARDFORK_0_22__1013)) {
+                    auto content_to_worker = content_reward * wso.median_props.worker_from_content_fund_percent / STEEMIT_100_PERCENT;
+                    content_reward -= content_to_worker;
+                    worker_reward += content_to_worker;
+
+                    auto vesting_to_worker = vesting_reward * wso.median_props.worker_from_vesting_fund_percent / STEEMIT_100_PERCENT;
+                    vesting_reward -= vesting_to_worker;
+                    worker_reward += vesting_to_worker;
+
+                    auto witness_to_worker = witness_reward * wso.median_props.worker_from_witness_fund_percent / STEEMIT_100_PERCENT;
+                    witness_reward -= witness_to_worker;
+                    worker_reward += witness_to_worker;
+                }
+
                 witness_reward *= STEEMIT_MAX_WITNESSES;
 
                 if (cwit.schedule == witness_object::timeshare) {
@@ -2678,6 +2719,15 @@ namespace golos { namespace chain {
                 witness_reward /= wso.witness_pay_normalization_factor;
 
                 new_steem = content_reward + vesting_reward + witness_reward;
+
+                if (worker_reward != 0) {
+                    new_steem += worker_reward;
+
+                    modify(props, [&](dynamic_global_property_object& p) {
+                        p.total_worker_fund_steem += asset(worker_reward, STEEM_SYMBOL);
+                        p.worker_revenue_per_day = asset(worker_reward * STEEMIT_BLOCKS_PER_DAY, STEEM_SYMBOL);
+                    });
+                }
 
                 modify(props, [&](dynamic_global_property_object &p) {
                     p.total_vesting_fund_steem += asset(vesting_reward, STEEM_SYMBOL);
@@ -3119,6 +3169,17 @@ namespace golos { namespace chain {
             _my->_evaluator_registry.register_evaluator<proposal_delete_evaluator>();
             _my->_evaluator_registry.register_evaluator<chain_properties_update_evaluator>();
             _my->_evaluator_registry.register_evaluator<break_free_referral_evaluator>();
+            _my->_evaluator_registry.register_evaluator<vote_options_evaluator>();
+            _my->_evaluator_registry.register_evaluator<worker_proposal_evaluator>();
+            _my->_evaluator_registry.register_evaluator<worker_proposal_delete_evaluator>();
+            _my->_evaluator_registry.register_evaluator<worker_techspec_evaluator>();
+            _my->_evaluator_registry.register_evaluator<worker_techspec_delete_evaluator>();
+            _my->_evaluator_registry.register_evaluator<worker_techspec_approve_evaluator>();
+            _my->_evaluator_registry.register_evaluator<worker_result_evaluator>();
+            _my->_evaluator_registry.register_evaluator<worker_result_delete_evaluator>();
+            _my->_evaluator_registry.register_evaluator<worker_payment_approve_evaluator>();
+            _my->_evaluator_registry.register_evaluator<worker_assign_evaluator>();
+            _my->_evaluator_registry.register_evaluator<worker_fund_evaluator>();
         }
 
         void database::set_custom_operation_interpreter(const std::string &id, std::shared_ptr<custom_operation_interpreter> registry) {
@@ -3164,6 +3225,10 @@ namespace golos { namespace chain {
             add_core_index<account_metadata_index>(*this);
             add_core_index<proposal_index>(*this);
             add_core_index<required_approval_index>(*this);
+            add_core_index<worker_proposal_index>(*this);
+            add_core_index<worker_techspec_index>(*this);
+            add_core_index<worker_techspec_approve_index>(*this);
+            add_core_index<worker_payment_approve_index>(*this);
 
             _plugin_index_signal();
         }
@@ -3680,6 +3745,7 @@ namespace golos { namespace chain {
                     clear_expired_transactions();
                     clear_expired_orders();
                     clear_expired_delegations();
+                    clear_expired_worker_objects();
                 }
 
                 update_witness_schedule();
@@ -3692,6 +3758,7 @@ namespace golos { namespace chain {
                     process_funds();
                     process_conversions();
                     process_comment_cashout();
+                    process_worker_cashout();
                     process_vesting_withdrawals();
                     process_savings_withdraws();
                     pay_liquidity_reward();
@@ -4602,6 +4669,9 @@ namespace golos { namespace chain {
             FC_ASSERT(STEEMIT_HARDFORK_0_21 == 21, "Invalid hardfork configuration");
             _hardfork_times[STEEMIT_HARDFORK_0_21] = fc::time_point_sec(STEEMIT_HARDFORK_0_21_TIME);
             _hardfork_versions[STEEMIT_HARDFORK_0_21] = STEEMIT_HARDFORK_0_21_VERSION;
+            FC_ASSERT(STEEMIT_HARDFORK_0_22 == 22, "Invalid hardfork configuration");
+            _hardfork_times[STEEMIT_HARDFORK_0_22] = fc::time_point_sec(STEEMIT_HARDFORK_0_22_TIME);
+            _hardfork_versions[STEEMIT_HARDFORK_0_22] = STEEMIT_HARDFORK_0_22_VERSION;
 
             const auto &hardforks = get_hardfork_property_object();
             FC_ASSERT(
@@ -4861,6 +4931,8 @@ namespace golos { namespace chain {
                     break;
                 case STEEMIT_HARDFORK_0_21:
                     break;
+                case STEEMIT_HARDFORK_0_22:
+                    break;
                 default:
                     break;
             }
@@ -4993,7 +5065,8 @@ namespace golos { namespace chain {
                 }
 
                 total_supply += gpo.total_vesting_fund_steem +
-                                gpo.total_reward_fund_steem;
+                                gpo.total_reward_fund_steem +
+                                gpo.total_worker_fund_steem;
 
                 FC_ASSERT(gpo.current_supply ==
                           total_supply, "", ("gpo.current_supply", gpo.current_supply)("total_supply", total_supply));

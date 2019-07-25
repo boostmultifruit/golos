@@ -272,6 +272,7 @@ namespace mongo_db {
 
             format_value(body, "witnesses_voted_for", account.witnesses_voted_for);
 
+            format_value(body, "last_comment", account.last_comment);
             format_value(body, "last_post", account.last_post);
 
             format_value(body, "referrer_account", account.referrer_account);
@@ -485,6 +486,18 @@ namespace mongo_db {
             format_value(body, "delegatee", delegation.delegatee);
             format_value(body, "vesting_shares", delegation.vesting_shares);
             format_value(body, "interest_rate", delegation.interest_rate);
+
+            std::string payout_strategy;
+            switch (delegation.payout_strategy) {
+                case delegator_payout_strategy::to_delegator:
+                    payout_strategy = "to_delegator";
+                    break;
+                case delegator_payout_strategy::to_delegated_vesting:
+                    payout_strategy = "to_delegated_vesting";
+                    break;
+            }
+            format_value(body, "payout_strategy", payout_strategy);
+
             format_value(body, "min_delegation_time", delegation.min_delegation_time);
             format_value(body, "timestamp", state_block.timestamp);
 
@@ -774,6 +787,10 @@ namespace mongo_db {
         catch (...) {
             // ilog("Unknown exception during formatting vote.");
         }
+    }
+
+    auto state_writer::operator()(const vote_options_operation& op) -> result_type {
+
     }
 
     auto state_writer::operator()(const comment_operation& op) -> result_type {
@@ -1516,6 +1533,46 @@ namespace mongo_db {
         }
     }
 
+    auto state_writer::operator()(const worker_proposal_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const worker_proposal_delete_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const worker_techspec_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const worker_techspec_delete_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const worker_techspec_approve_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const worker_result_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const worker_result_delete_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const worker_payment_approve_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const worker_assign_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const worker_fund_operation& op) -> result_type {
+
+    }
+
     auto state_writer::operator()(const fill_convert_request_operation& op) -> result_type {
         try {
             format_account(op.owner);
@@ -1844,6 +1901,7 @@ namespace mongo_db {
             format_value(body, "total_vesting_shares", dgpo.total_vesting_shares);
             format_value(body, "total_reward_fund_steem", dgpo.total_reward_fund_steem);
             format_value(body, "total_reward_shares2", dgpo.total_reward_shares2);
+            format_value(body, "total_worker_fund_steem", dgpo.total_worker_fund_steem);
 
             format_value(body, "sbd_interest_rate", dgpo.sbd_interest_rate);
 
@@ -1932,6 +1990,18 @@ namespace mongo_db {
     }
 
     auto state_writer::operator()(const total_comment_reward_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const techspec_reward_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const techspec_expired_operation& op) -> result_type {
+
+    }
+
+    auto state_writer::operator()(const worker_reward_operation& op) -> result_type {
 
     }
 

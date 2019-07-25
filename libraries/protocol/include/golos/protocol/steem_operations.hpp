@@ -10,6 +10,10 @@
 
 namespace golos { namespace protocol {
 
+        void validate_account_name(const std::string &name);
+
+        void validate_permlink(const std::string &permlink);
+
         struct account_create_operation : public base_operation {
             asset fee;
             account_name_type creator;
@@ -164,7 +168,7 @@ namespace golos { namespace protocol {
                 : percent(perc) {
             }
 
-            uint16_t percent = STEEMIT_MIN_CURATION_PERCENT;
+            uint16_t percent = STEEMIT_DEF_CURATION_PERCENT;
 
             void validate() const;
         };
@@ -253,6 +257,38 @@ namespace golos { namespace protocol {
             account_name_type author;
             string permlink;
             int16_t weight = 0;
+
+            void validate() const;
+
+            void get_required_posting_authorities(flat_set<account_name_type> &a) const {
+                a.insert(voter);
+            }
+        };
+
+        struct vote_author_promote_rate {
+            vote_author_promote_rate() {
+            }
+
+            vote_author_promote_rate(uint16_t r)
+                : rate(r) {
+            }
+
+            uint16_t rate = GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE;
+
+            void validate() const;
+        };
+
+        using vote_options_extension = static_variant <
+            vote_author_promote_rate
+        >;
+
+        using vote_options_extensions_type = flat_set<vote_options_extension>;
+
+        struct vote_options_operation : public base_operation {
+            account_name_type voter;
+            account_name_type author;
+            string permlink;
+            vote_options_extensions_type extensions;
 
             void validate() const;
 
@@ -506,7 +542,7 @@ namespace golos { namespace protocol {
          * and well functioning network. Any time @owner is in the active set of witnesses these
          * properties will be used to control the blockchain configuration.
          */
-        struct chain_properties_18: public chain_properties_17 {
+        struct chain_properties_18 : public chain_properties_17 {
 
             /**
              *  Minimum fee (in GOLOS) payed when create account with delegation
@@ -552,7 +588,7 @@ namespace golos { namespace protocol {
          * Users can invite referrals, and they will pay some percent of rewards to their referrers.
          * Referral can break paying for some fee.
          */
-        struct chain_properties_19: public chain_properties_18 {
+        struct chain_properties_19 : public chain_properties_18 {
 
             /**
              * Maximum percent of referral deductions
@@ -660,6 +696,63 @@ namespace golos { namespace protocol {
             chain_properties_19& operator=(const chain_properties_19&) = default;
         };
 
+        struct chain_properties_22 : public chain_properties_19 {
+
+            /**
+             * Percent of content fund growth on each block being redirected to worker fund
+             */
+            uint16_t worker_from_content_fund_percent = GOLOS_WORKER_FROM_CONTENT_FUND_PERCENT;
+
+            /**
+             * Percent of vesting fund growth on each block being redirected to worker fund
+             */
+            uint16_t worker_from_vesting_fund_percent = GOLOS_WORKER_FROM_VESTING_FUND_PERCENT;
+
+            /**
+             * Percent of witness fund growth on each block being redirected to worker fund
+             */
+            uint16_t worker_from_witness_fund_percent = GOLOS_WORKER_FROM_WITNESS_FUND_PERCENT;
+
+            /**
+             * Maximum term of worker techspec approving
+             */
+            uint32_t worker_techspec_approve_term_sec = GOLOS_WORKER_TECHSPEC_APPROVE_TERM_SEC;
+
+            /**
+             * Maximum term of worker result approving
+             */
+            uint32_t worker_result_approve_term_sec = GOLOS_WORKER_RESULT_APPROVE_TERM_SEC;
+
+            /**
+             * Minimum rate of curator payment to be sent to author for promoting him by curator
+             */
+            uint16_t min_vote_author_promote_rate = GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE;
+
+            /**
+             * Maximum rate of curator payment to be sent to author for promoting him by curator
+             */
+            uint16_t max_vote_author_promote_rate = GOLOS_MAX_VOTE_AUTHOR_PROMOTE_RATE;
+
+            void validate() const;
+
+            chain_properties_22& operator=(const chain_properties_17& src) {
+                chain_properties_19::operator=(src);
+                return *this;
+            }
+
+            chain_properties_22& operator=(const chain_properties_18& src) {
+                chain_properties_19::operator=(src);
+                return *this;
+            }
+
+            chain_properties_22& operator=(const chain_properties_19& src) {
+                chain_properties_19::operator=(src);
+                return *this;
+            }
+
+            chain_properties_22& operator=(const chain_properties_22&) = default;
+        };
+
         inline chain_properties_17& chain_properties_17::operator=(const chain_properties_18& src) {
             account_creation_fee = src.account_creation_fee;
             maximum_block_size = src.maximum_block_size;
@@ -670,7 +763,8 @@ namespace golos { namespace protocol {
         using versioned_chain_properties = fc::static_variant<
             chain_properties_17,
             chain_properties_18,
-            chain_properties_19
+            chain_properties_19,
+            chain_properties_22
         >;
 
         /**
@@ -1296,11 +1390,30 @@ namespace golos { namespace protocol {
             }
         };
 
-        enum delegator_payout_strategy {
+        enum class delegator_payout_strategy {
             to_delegator,
             to_delegated_vesting,
             _size
         };
+
+        struct delegate_delegator_payout_strategy {
+            delegate_delegator_payout_strategy() {
+            }
+
+            delegate_delegator_payout_strategy(delegator_payout_strategy strat)
+                : strategy(strat) {
+            }
+
+            delegator_payout_strategy strategy = delegator_payout_strategy::to_delegator;
+
+            void validate() const;
+        };
+
+        using delegate_vesting_shares_with_interest_extension = static_variant<
+            delegate_delegator_payout_strategy
+        >;
+
+        using delegate_vesting_shares_with_interest_extensions_type = flat_set<delegate_vesting_shares_with_interest_extension>;
 
         class delegate_vesting_shares_with_interest_operation : public base_operation {
         public:
@@ -1308,8 +1421,7 @@ namespace golos { namespace protocol {
             account_name_type delegatee;    ///< The account receiving vesting shares
             asset vesting_shares;           ///< The amount of vesting shares delegated
             uint16_t interest_rate = STEEMIT_DEFAULT_DELEGATED_VESTING_INTEREST_RATE; ///< The interest rate wanted by delegator
-            delegator_payout_strategy payout_strategy = to_delegator; ///< The strategy of delegator vesting payouts
-            extensions_type extensions;     ///< Extensions. Not currently used.
+            delegate_vesting_shares_with_interest_extensions_type extensions;         ///< Extensions.
 
             void validate() const;
             void get_required_active_authorities(flat_set<account_name_type>& a) const {
@@ -1371,6 +1483,11 @@ FC_REFLECT_DERIVED(
     (posts_window)(posts_per_window)(comments_window)(comments_per_window)(votes_window)(votes_per_window)(auction_window_size)
     (max_delegated_vesting_interest_rate)(custom_ops_bandwidth_multiplier)(min_curation_percent)(max_curation_percent)
     (curation_reward_curve)(allow_distribute_auction_reward)(allow_return_auction_reward_to_fund))
+FC_REFLECT_DERIVED(
+    (golos::protocol::chain_properties_22), ((golos::protocol::chain_properties_19)),
+    (worker_from_content_fund_percent)(worker_from_vesting_fund_percent)(worker_from_witness_fund_percent)
+    (worker_techspec_approve_term_sec)(worker_result_approve_term_sec)
+    (min_vote_author_promote_rate)(max_vote_author_promote_rate))
 
 FC_REFLECT_TYPENAME((golos::protocol::versioned_chain_properties))
 
@@ -1412,6 +1529,11 @@ FC_REFLECT((golos::protocol::account_witness_vote_operation), (account)(witness)
 FC_REFLECT((golos::protocol::account_witness_proxy_operation), (account)(proxy))
 FC_REFLECT((golos::protocol::comment_operation), (parent_author)(parent_permlink)(author)(permlink)(title)(body)(json_metadata))
 FC_REFLECT((golos::protocol::vote_operation), (voter)(author)(permlink)(weight))
+
+FC_REFLECT((golos::protocol::vote_author_promote_rate), (rate));
+FC_REFLECT_TYPENAME((golos::protocol::vote_options_extension));
+FC_REFLECT((golos::protocol::vote_options_operation), (voter)(author)(permlink)(extensions))
+
 FC_REFLECT((golos::protocol::custom_operation), (required_auths)(id)(data))
 FC_REFLECT((golos::protocol::custom_json_operation), (required_auths)(required_posting_auths)(id)(json))
 FC_REFLECT((golos::protocol::custom_binary_operation), (required_owner_auths)(required_active_auths)(required_posting_auths)(required_auths)(id)(data))
@@ -1444,6 +1566,8 @@ FC_REFLECT((golos::protocol::chain_properties_update_operation), (owner)(props))
 FC_REFLECT((golos::protocol::break_free_referral_operation), (referral)(extensions));
 
 FC_REFLECT_ENUM(golos::protocol::delegator_payout_strategy, (to_delegator)(to_delegated_vesting)(_size))
+FC_REFLECT((golos::protocol::delegate_delegator_payout_strategy), (strategy))
+FC_REFLECT_TYPENAME((golos::protocol::delegate_vesting_shares_with_interest_extension));
 FC_REFLECT((golos::protocol::delegate_vesting_shares_with_interest_operation), (delegator)(delegatee)(vesting_shares)(interest_rate)(extensions));
 FC_REFLECT((golos::protocol::reject_vesting_shares_delegation_operation), (delegator)(delegatee)(extensions));
 FC_REFLECT((golos::protocol::transit_to_cyberway_operation), (owner)(vote_to_transit));

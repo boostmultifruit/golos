@@ -104,7 +104,7 @@ namespace golos {
             bool allow_replies = true;      /// allows a post to disable replies.
             bool allow_votes = true;      /// allows a post to receive votes;
             bool allow_curation_rewards = true;
-            uint16_t curation_rewards_percent = STEEMIT_MIN_CURATION_PERCENT;
+            uint16_t curation_rewards_percent = STEEMIT_DEF_CURATION_PERCENT;
 
             bip::vector <protocol::beneficiary_route_type, allocator<protocol::beneficiary_route_type>> beneficiaries;
         };
@@ -119,7 +119,7 @@ namespace golos {
 
             account_name_type account;
             uint16_t interest_rate = 0;
-            protocol::delegator_payout_strategy payout_strategy = protocol::to_delegator;
+            protocol::delegator_payout_strategy payout_strategy = protocol::delegator_payout_strategy::to_delegator;
         };
 
         /**
@@ -147,6 +147,8 @@ namespace golos {
             int8_t num_changes = 0; ///< Count of vote changes (while consensus). If = -1 then related post is archived & vote no more needed for consensus
 
             bip::vector<delegator_vote_interest_rate, allocator<delegator_vote_interest_rate>> delegator_vote_interest_rates;
+
+            uint16_t author_promote_rate = GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE;
         };
 
         struct by_comment_voter;

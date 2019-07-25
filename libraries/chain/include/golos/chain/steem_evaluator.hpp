@@ -56,6 +56,7 @@ namespace golos { namespace chain {
         DEFINE_EVALUATOR(delegate_vesting_shares_with_interest)
         DEFINE_EVALUATOR(reject_vesting_shares_delegation)
         DEFINE_EVALUATOR(transit_to_cyberway)
+        DEFINE_EVALUATOR(vote_options)
 
         class proposal_create_evaluator: public evaluator_impl<proposal_create_evaluator> {
         public:
@@ -80,5 +81,16 @@ namespace golos { namespace chain {
         protected:
             int depth_ = 0;
         };
+
+        DEFINE_EVALUATOR(worker_proposal)
+        DEFINE_EVALUATOR(worker_proposal_delete)
+        DEFINE_EVALUATOR(worker_techspec)
+        DEFINE_EVALUATOR(worker_techspec_delete)
+        DEFINE_EVALUATOR(worker_techspec_approve)
+        DEFINE_EVALUATOR(worker_result)
+        DEFINE_EVALUATOR(worker_result_delete)
+        DEFINE_EVALUATOR(worker_payment_approve)
+        DEFINE_EVALUATOR(worker_assign)
+        DEFINE_EVALUATOR(worker_fund)
 
 } } // golos::chain

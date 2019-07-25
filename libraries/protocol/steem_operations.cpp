@@ -4,17 +4,13 @@
 #include <fc/io/json.hpp>
 
 namespace golos { namespace protocol {
-
-        /// TODO: after the hardfork, we can rename this method validate_permlink because it is strictily less restrictive than before
-        ///  Issue #56 contains the justificiation for allowing any UTF-8 string to serve as a permlink, content will be grouped by tags
-        ///  going forward.
-        inline void validate_permlink(const string &permlink) {
-            GOLOS_CHECK_VALUE(permlink.size() < STEEMIT_MAX_PERMLINK_LENGTH, "permlink is too long");
-            GOLOS_CHECK_VALUE(fc::is_utf8(permlink), "permlink not formatted in UTF8");
+        void validate_account_name(const std::string &name) {
+            GOLOS_CHECK_VALUE(is_valid_account_name(name), "Account name ${name} is invalid", ("name", name));
         }
 
-        static inline void validate_account_name(const string &name) {
-            GOLOS_CHECK_VALUE(is_valid_account_name(name), "Account name ${name} is invalid", ("name", name));
+        void validate_permlink(const std::string &permlink) {
+            GOLOS_CHECK_VALUE(permlink.size() < STEEMIT_MAX_PERMLINK_LENGTH, "permlink is too long");
+            GOLOS_CHECK_VALUE(fc::is_utf8(permlink), "permlink not formatted in UTF8");
         }
 
         inline void validate_account_json_metadata(const string& json_metadata) {
@@ -216,6 +212,32 @@ namespace golos { namespace protocol {
             GOLOS_CHECK_PARAM(permlink, validate_permlink(permlink));
         }
 
+        struct vote_options_extension_validate_visitor {
+            vote_options_extension_validate_visitor() {
+            }
+
+            using result_type = void;
+
+            void operator()(const vote_author_promote_rate& vapr) const {
+                vapr.validate();
+            }
+        };
+
+        void vote_author_promote_rate::validate() const {
+            GOLOS_CHECK_PARAM(rate, {
+                GOLOS_CHECK_VALUE_LEGE(rate, GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE, GOLOS_MAX_VOTE_AUTHOR_PROMOTE_RATE);
+            });
+        }
+
+        void vote_options_operation::validate() const {
+            GOLOS_CHECK_PARAM(voter, validate_account_name(voter));
+            GOLOS_CHECK_PARAM(author, validate_account_name(author));
+            GOLOS_CHECK_PARAM(permlink, validate_permlink(permlink));
+            for (auto& e : extensions) {
+                e.visit(vote_options_extension_validate_visitor());
+            }
+        }
+
         void transfer_operation::validate() const {
             try {
                 GOLOS_CHECK_PARAM(from, validate_account_name(from));
@@ -320,6 +342,17 @@ namespace golos { namespace protocol {
                     allow_return_auction_reward_to_fund || allow_distribute_auction_reward,
                     "One or both options should be enabled: allow_return_auction_reward_to_fund and allow_distribute_auction_reward");
             });
+        }
+
+        void chain_properties_22::validate() const {
+            chain_properties_19::validate();
+            GOLOS_CHECK_VALUE_LE(worker_from_content_fund_percent, STEEMIT_100_PERCENT);
+            GOLOS_CHECK_VALUE_LE(worker_from_vesting_fund_percent, STEEMIT_100_PERCENT);
+            GOLOS_CHECK_VALUE_LE(worker_from_witness_fund_percent, STEEMIT_100_PERCENT);
+            GOLOS_CHECK_VALUE_LE(worker_techspec_approve_term_sec, GOLOS_WORKER_TECHSPEC_APPROVE_TERM_SEC);
+            GOLOS_CHECK_VALUE_LE(worker_result_approve_term_sec, GOLOS_WORKER_RESULT_APPROVE_TERM_SEC);
+            GOLOS_CHECK_VALUE_LEGE(min_vote_author_promote_rate, GOLOS_MIN_VOTE_AUTHOR_PROMOTE_RATE, max_vote_author_promote_rate);
+            GOLOS_CHECK_VALUE_LEGE(max_vote_author_promote_rate, min_vote_author_promote_rate, GOLOS_MAX_VOTE_AUTHOR_PROMOTE_RATE);
         }
 
         void witness_update_operation::validate() const {
@@ -722,12 +755,33 @@ namespace golos { namespace protocol {
             GOLOS_CHECK_PARAM_ACCOUNT(referral);
         }
 
+        struct delegate_vesting_shares_with_interest_extension_validate_visitor {
+            delegate_vesting_shares_with_interest_extension_validate_visitor() {
+            }
+
+            using result_type = void;
+
+            void operator()(const delegate_delegator_payout_strategy& ddps) const {
+                ddps.validate();
+            }
+        };
+
+        void delegate_delegator_payout_strategy::validate() const {
+            GOLOS_CHECK_PARAM(strategy, {
+                GOLOS_CHECK_VALUE(strategy < delegator_payout_strategy::_size, "This value is reserved");
+            });
+        }
+
         void delegate_vesting_shares_with_interest_operation::validate() const {
             GOLOS_CHECK_PARAM_ACCOUNT(delegator);
             GOLOS_CHECK_PARAM_ACCOUNT(delegatee);
             GOLOS_CHECK_LOGIC(delegator != delegatee, logic_exception::cannot_delegate_to_yourself,
                 "You cannot delegate GESTS to yourself");
             GOLOS_CHECK_PARAM(vesting_shares, GOLOS_CHECK_ASSET_GE0(vesting_shares, GESTS));
+
+            for (auto& e : extensions) {
+                e.visit(delegate_vesting_shares_with_interest_extension_validate_visitor());
+            }
         }
 
         void reject_vesting_shares_delegation_operation::validate() const {
