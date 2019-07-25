@@ -106,7 +106,6 @@ namespace golos { namespace chain {
         class vesting_delegation_object;
         class vesting_delegation_expiration_object;
         class account_metadata_object;
-        class proposal_object;
         class worker_proposal_object;
         class worker_techspec_object;
         class worker_techspec_approve_object;

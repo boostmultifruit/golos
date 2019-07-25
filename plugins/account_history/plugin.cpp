@@ -490,6 +490,10 @@ if (options.count(name)) { \
             insert_receiver(op.account);
         }
 
+        void operator()(const total_comment_reward_operation& op) {
+            insert_dual(op.author);
+        }
+
         void operator()(const delegate_vesting_shares_with_interest_operation& op) {
             insert_pair(op.delegator, op.delegatee);
         }

@@ -68,6 +68,7 @@ namespace mongo_db {
         result_type operator()(const delegate_vesting_shares_operation& op);
         result_type operator()(const delegate_vesting_shares_with_interest_operation& op);
         result_type operator()(const reject_vesting_shares_delegation_operation& op);
+        result_type operator()(const transit_to_cyberway_operation& op);
         result_type operator()(const proposal_create_operation& op);
         result_type operator()(const proposal_update_operation& op);
         result_type operator()(const proposal_delete_operation& op);
@@ -99,6 +100,7 @@ namespace mongo_db {
         result_type operator()(const chain_properties_update_operation& op);
         result_type operator()(const delegation_reward_operation& op);
         result_type operator()(const auction_window_reward_operation& op);
+        result_type operator()(const total_comment_reward_operation& op);
         result_type operator()(const techspec_reward_operation& op);
         result_type operator()(const techspec_expired_operation& op);
         result_type operator()(const worker_reward_operation& op);

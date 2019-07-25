@@ -146,6 +146,9 @@ namespace golos {
 
             uint16_t custom_ops_bandwidth_multiplier = STEEMIT_CUSTOM_OPS_BANDWIDTH_MULTIPLIER;
 
+            uint32_t transit_block_num = UINT32_MAX;
+            fc::array<account_name_type, STEEMIT_MAX_WITNESSES> transit_witnesses;
+
             asset worker_revenue_per_day = asset(0, STEEM_SYMBOL);
             asset worker_consumption_per_day = asset(0, STEEM_SYMBOL);
         };
@@ -194,6 +197,8 @@ FC_REFLECT((golos::chain::dynamic_global_property_object),
                 (vote_regeneration_per_day)
                 (custom_ops_bandwidth_multiplier)
                 (is_forced_min_price)
+                (transit_block_num)
+                (transit_witnesses)
                 (worker_revenue_per_day)
                 (worker_consumption_per_day)
 )

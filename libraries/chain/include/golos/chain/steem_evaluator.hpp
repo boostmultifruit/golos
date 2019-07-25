@@ -55,6 +55,7 @@ namespace golos { namespace chain {
         DEFINE_EVALUATOR(break_free_referral)
         DEFINE_EVALUATOR(delegate_vesting_shares_with_interest)
         DEFINE_EVALUATOR(reject_vesting_shares_delegation)
+        DEFINE_EVALUATOR(transit_to_cyberway)
         DEFINE_EVALUATOR(vote_options)
 
         class proposal_create_evaluator: public evaluator_impl<proposal_create_evaluator> {
