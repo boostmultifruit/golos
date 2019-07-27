@@ -2580,14 +2580,14 @@ namespace {
 template <typename Operation>
 void delegate_vesting_shares(
     database& _db, const chain_properties& median_props, const Operation& op,
-    const delegate_vesting_shares_with_interest_extensions_type* extensions, uint16_t interest_rate
+    const delegate_vesting_shares_with_interest_extensions_type* extensions, fc::optional<uint16_t> interest_rate
 ) {
     const auto& delegator = _db.get_account(op.delegator);
     const auto& delegatee = _db.get_account(op.delegatee);
     auto delegation = _db.find<vesting_delegation_object, by_delegation>(std::make_tuple(op.delegator, op.delegatee));
 
-    if (delegation) {
-        GOLOS_CHECK_LOGIC(delegation->interest_rate == interest_rate,
+    if (delegation && !!interest_rate) {
+        GOLOS_CHECK_LOGIC(delegation->interest_rate == *interest_rate,
             logic_exception::cannot_change_delegator_interest_rate,
             "Cannot change interest rate of already created delegation");
     }
@@ -2647,7 +2647,9 @@ void delegate_vesting_shares(
                 o.delegatee = op.delegatee;
                 o.vesting_shares = op.vesting_shares;
                 o.min_delegation_time = now;
-                o.interest_rate = interest_rate;
+                if (!!interest_rate) {
+                    o.interest_rate = *interest_rate;
+                }
             });
         } else {
             _db.modify(*delegation, [&](vesting_delegation_object& o) {
@@ -2698,7 +2700,7 @@ void delegate_vesting_shares(
         void delegate_vesting_shares_evaluator::do_apply(const delegate_vesting_shares_operation& op) {
             const auto& median_props = _db.get_witness_schedule_object().median_props;
 
-            delegate_vesting_shares(_db, median_props, op, nullptr, 0);
+            delegate_vesting_shares(_db, median_props, op, nullptr, fc::optional<uint16_t>());
         }
 
         void break_free_referral_evaluator::do_apply(const break_free_referral_operation& op) {
@@ -2730,7 +2732,7 @@ void delegate_vesting_shares(
 
             GOLOS_CHECK_LIMIT_PARAM(op.interest_rate, median_props.max_delegated_vesting_interest_rate);
 
-            delegate_vesting_shares(_db, median_props, op, &op.extensions, op.interest_rate);
+            delegate_vesting_shares(_db, median_props, op, &op.extensions, fc::optional<uint16_t>(op.interest_rate));
         }
 
         void reject_vesting_shares_delegation_evaluator::do_apply(const reject_vesting_shares_delegation_operation& op) {
