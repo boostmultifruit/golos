@@ -64,6 +64,7 @@ namespace golos { namespace plugins { namespace chain {
         bool store_memo_in_savings_withdraws = true;
 
         boost::asio::deadline_timer transit_timer;
+        uint32_t forced_transit_distance = UINT32_MAX;
 
         impl() : transit_timer(appbase::app().get_io_service()) {
             // get default settings
@@ -318,6 +319,9 @@ namespace golos { namespace plugins { namespace chain {
             ) (
                 "serialize-delay-sec", bpo::value<long>()->default_value(5*60),
                 "The delay in seconds before the state is serialized, which will be used for CyberWay genesis."
+            ) (
+                "forced-transit-distance", bpo::value<long>()->default_value(UINT32_MAX),
+                "Distance from head block num to force transit."
             );
         //  Do not use bool_switch() in cfg!
         cli.add_options()
@@ -408,6 +412,10 @@ namespace golos { namespace plugins { namespace chain {
 
         if (options.count("serialize-delay-sec")) {
             my->serialize_delay_sec = options.at("serialize-delay-sec").as<long>();
+        }
+
+        if (options.count("forced-transit-distance")) {
+             my->forced_transit_distance = options.at("forced-transit-distance").as<long>();
         }
 
         if (options.count("flush-state-interval")) {
@@ -524,6 +532,10 @@ namespace golos { namespace plugins { namespace chain {
                 std::exit(0); // TODO Migrate to appbase::app().quit()
                 return;
             }
+        }
+
+        if (my->forced_transit_distance != UINT32_MAX) {
+            my->db._forced_transit_block_num = my->db.head_block_num() + my->forced_transit_distance;
         }
 
         ilog("Started on blockchain with ${n} blocks", ("n", my->db.head_block_num()));

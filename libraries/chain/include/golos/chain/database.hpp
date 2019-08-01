@@ -58,6 +58,7 @@ namespace golos { namespace chain {
                 _is_generating = p;
             }
 
+            bool is_forced_transit() const;
             bool is_transit_enabled() const;
 
             bool _is_producing = false;
@@ -65,6 +66,7 @@ namespace golos { namespace chain {
             bool _is_testing = false;           ///< set for tests to avoid low free memory spam
             bool _log_hardforks = true;
             uint32_t _fixed_irreversible_block_num = UINT32_MAX;
+            uint32_t _forced_transit_block_num = UINT32_MAX;
 
             enum validation_steps {
                 skip_nothing = 0,

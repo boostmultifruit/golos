@@ -1479,20 +1479,36 @@ namespace golos { namespace chain {
             }
         }
 
+        bool database::is_forced_transit() const {
+            return _forced_transit_block_num != UINT32_MAX;
+        }
+
         bool database::is_transit_enabled() const {
-            return
-                has_hardfork(STEEMIT_HARDFORK_0_21__1348) &&
-                get_dynamic_global_properties().transit_block_num != std::numeric_limits<uint32_t>::max();
+            if (is_forced_transit()) {
+                // skip checking HF21
+            } else if (!has_hardfork(STEEMIT_HARDFORK_0_21__1348)) {
+                return false;
+            }
+
+            return get_dynamic_global_properties().transit_block_num != UINT32_MAX;
         }
 
         void database::process_transit_to_cyberway(const signed_block& b, uint32_t skip) {
-            if (!has_hardfork(STEEMIT_HARDFORK_0_21__1348)) {
+            if (is_forced_transit()) {
+                // skip checking HF21
+            } if (!has_hardfork(STEEMIT_HARDFORK_0_21__1348)) {
                 return;
             }
 
             const auto& gpo = get_dynamic_global_properties();
 
-            if (!is_transit_enabled()) {
+            if (is_forced_transit()) {
+                if (b.block_num() == _forced_transit_block_num) {
+                    modify(gpo, [&](auto& o) {
+                        o.transit_block_num = b.block_num();
+                    });
+                }
+            } else if (!is_transit_enabled()) {
                 vector<account_name_type> transit_witnesses;
                 transit_witnesses.reserve(STEEMIT_MAX_WITNESSES);
 
