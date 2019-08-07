@@ -139,9 +139,13 @@ namespace golos { namespace plugins { namespace chain {
 
     void plugin::impl::transit_to_cyberway() {
         // revert to last LIB
-        auto lib = db.last_non_undoable_block_num();
-        while (db.head_block_num() != lib) {
-            db.pop_block();
+        try {
+            auto lib = db.last_non_undoable_block_num();
+            while (db.head_block_num() < lib) {
+                db.pop_block();
+            }
+        } catch(...) {
+            // skip empty forkdb
         }
         db.flush();
 
