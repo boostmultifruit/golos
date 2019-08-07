@@ -534,11 +534,21 @@ namespace golos { namespace plugins { namespace chain {
             }
         }
 
+        ilog("Started on blockchain with ${n} blocks", ("n", my->db.head_block_num()));
+
         if (my->forced_transit_distance != UINT32_MAX) {
             my->db._forced_transit_block_num = my->db.head_block_num() + my->forced_transit_distance;
+            if (0 == my->forced_transit_distance) {
+                if (bfs::exists(my->serialize_state_path)) {
+                    ilog("Serialized state ${s} already exists", ("s", my->serialize_state_path.string()));
+                    std::exit(0);
+                }
+                my->transit_to_cyberway();
+            } else {
+                ilog("Set forced transit block number to ${n}", ("n", my->db._forced_transit_block_num));
+            }
         }
 
-        ilog("Started on blockchain with ${n} blocks", ("n", my->db.head_block_num()));
         on_sync();
     }
 
