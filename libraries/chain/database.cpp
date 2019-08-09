@@ -1507,13 +1507,16 @@ namespace golos { namespace chain {
                     }
                 }
 
+                modify(gpo, [&](auto& o) {
+                    i = 0;
+                    for (auto owner: transit_witnesses) {
+                        o.transit_witnesses[i++] = owner;
+                    }
+                });
+
                 if (transit_witnesses.size() >= STEEMIT_TRANSIT_REQUIRED_WITNESSES) {
                     modify(gpo, [&](auto& o) {
-                        i = 0;
                         o.transit_block_num = b.block_num();
-                        for (auto owner: transit_witnesses) {
-                            o.transit_witnesses[i++] = owner;
-                        }
                     });
                 } else {
                     return;
