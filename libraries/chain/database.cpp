@@ -2421,6 +2421,7 @@ namespace golos { namespace chain {
         share_type database::pay_curators(const comment_curation_info& c, share_type max_rewards, share_type& actual_rewards) {
             try {
                 share_type unclaimed_rewards = max_rewards;
+                share_type to_author = 0;
 
                 if (!c.comment.allow_curation_rewards) {
                     modify(get_dynamic_global_properties(), [&](dynamic_global_property_object &props) {
@@ -2439,21 +2440,22 @@ namespace golos { namespace chain {
                     auto heaviest_itr = c.vote_list.end();
 
                     for (auto itr = c.vote_list.begin(); c.vote_list.end() != itr; ++itr) {
-                        uint128_t weight(itr->weight);
+                        uint128_t weight(itr->weight - itr->author_promote_weight);
                         uint64_t claim = ((max_rewards.value * weight) / total_weight).to_uint64();
-                        if (has_hardfork(STEEMIT_HARDFORK_0_22__1014)) {
-                            claim -= (uint128_t(claim) * (*itr->vote).author_promote_rate / STEEMIT_100_PERCENT).to_uint64();
-                        }
+
+                        auto promote = ((max_rewards.value * uint128_t(itr->author_promote_weight)) / total_weight).to_uint64();
+                        unclaimed_rewards -= promote;
+                        to_author += promote;
 
                         // to_curators case
                         if (c.comment.auction_window_reward_destination == protocol::to_curators &&
                             itr->vote->auction_time == c.comment.auction_window_size
                         ) {
                             if (c.votes_after_auction_window_weight) {
-                                claim += ((auction_window_reward * weight) / c.votes_after_auction_window_weight).to_uint64();
+                                claim += ((auction_window_reward * uint128_t(itr->weight)) / c.votes_after_auction_window_weight).to_uint64();
                             }
                             if (heaviest_itr == c.vote_list.end()) {
-                                // as votes are sorted in non-decreasing order
+                                // as votes are sorted in decreasing order
                                 // this if will work once or won't work at all
                                 heaviest_itr = itr;
                                 continue;
@@ -2463,7 +2465,7 @@ namespace golos { namespace chain {
                         if (claim > 0) { // min_amt is non-zero satoshis
                             unclaimed_rewards -= claim;
                             actual_rewards += pay_curator(*itr->vote, claim, c.comment.author, to_string(c.comment.permlink));
-                        } else {
+                        } else if (promote == 0) {
                             break;
                         }
                     }
@@ -2475,7 +2477,7 @@ namespace golos { namespace chain {
                         unclaimed_rewards = 0;
                     }
                 }
-                // Case: auction window destination is reward fund or there are not curator which can get the auw reward
+                // Case: auction window destination is reward fund or there are no curator which can get the auw reward
                 if (c.comment.auction_window_reward_destination != protocol::to_author && unclaimed_rewards > 0) {
                     push_virtual_operation(auction_window_reward_operation(asset(unclaimed_rewards, STEEM_SYMBOL), c.comment.author, to_string(c.comment.permlink)));
                     modify(get_dynamic_global_properties(), [&](dynamic_global_property_object &props) {
@@ -2484,7 +2486,7 @@ namespace golos { namespace chain {
                     unclaimed_rewards = 0;
                 }
 
-                return unclaimed_rewards;
+                return unclaimed_rewards + to_author;
             } FC_CAPTURE_AND_RETHROW()
         }
 

@@ -168,6 +168,7 @@ namespace golos { namespace api {
         d.total_vote_weight = c.total_vote_weight;
         d.auction_window_weight = c.auction_window_weight;
         d.votes_in_auction_window_weight = c.votes_in_auction_window_weight;
+        d.author_promote_weight = c.author_promote_weight;
         d.active_votes = select_active_votes(c, vote_limit, offset);
 
         set_pending_payout(d);
@@ -233,6 +234,10 @@ namespace golos { namespace api {
         const auto auction_window_reward = curators_tokens.value * d.auction_window_weight / d.total_vote_weight;
 
         curators_tokens -= auction_window_reward;
+
+        const auto promote_reward = curators_tokens.value * d.author_promote_weight / d.total_vote_weight;
+        curators_tokens -= promote_reward;
+        author_tokens += promote_reward;
 
         if (d.auction_window_reward_destination == to_author) {
             author_tokens += auction_window_reward;

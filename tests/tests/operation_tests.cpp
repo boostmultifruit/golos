@@ -10,6 +10,7 @@
 #include <golos/chain/steem_objects.hpp>
 
 #include <golos/api/account_api_object.hpp>
+#include <golos/api/discussion_helper.hpp>
 
 #include <fc/crypto/digest.hpp>
 #include <fc/io/json.hpp>
@@ -7961,11 +7962,17 @@ BOOST_FIXTURE_TEST_SUITE(operation_tests, clean_database_fixture)
         BOOST_TEST_MESSAGE("Testing: author_promote_rate_apply");
 
         signed_transaction tx;
-        ACTORS((alice)(bob))
+        ACTORS((alice)(bob)(bobprom)(carol)(heaviest))
         fund("alice", 10000);
         vest("alice", 10000);
         fund("bob", 10000);
         vest("bob", 10000);
+        fund("bobprom", 10000);
+        vest("bobprom", 10000);
+        fund("carol", 10000);
+        vest("carol", 10000);
+        fund("heaviest", 10000);
+        vest("heaviest", 10000);
         generate_block();
 
         auto& wso = db->get_witness_schedule_object();
@@ -7978,61 +7985,108 @@ BOOST_FIXTURE_TEST_SUITE(operation_tests, clean_database_fixture)
 
         comment_create("alice", alice_private_key, "alice-test", "", "alice-test");
         generate_block();
+
+        generate_blocks(db->head_block_time() + fc::seconds(wso.median_props.auction_window_size), true);
+
         vote_operation vote_op;
-        vote_op.voter = "bob";
+        vote_op.voter = "bobprom";
         vote_op.author = "alice";
         vote_op.permlink = "alice-test";
         vote_op.weight = 1000;
-        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, vote_op));
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bobprom_private_key, vote_op));
         generate_block();
 
         {
-            auto vote = db->get<comment_vote_object, by_comment_voter>(std::make_tuple(db->get_comment("alice", string("alice-test")).id, db->get_account("bob").id));
+            auto vote = db->get<comment_vote_object, by_comment_voter>(std::make_tuple(db->get_comment("alice", string("alice-test")).id, db->get_account("bobprom").id));
             BOOST_CHECK_EQUAL(vote.author_promote_rate, wso.median_props.min_vote_author_promote_rate);
         }
+
+        vote_op.voter = "bob";
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, vote_op));
+        generate_block();
+
+        vote_op.voter = "carol";
+        vote_op.weight = 2000;
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, carol_private_key, vote_op));
+        generate_block();
+
+        vote_op.voter = "heaviest";
+        vote_op.weight = 10000;
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, heaviest_private_key, vote_op));
+        generate_block();
 
         BOOST_TEST_MESSAGE("--- Testing with normal value");
 
         vote_options_operation op;
-        op.voter = "bob";
+        op.voter = "bobprom";
         op.author = "alice";
         op.permlink = "alice-test";
-        vote_author_promote_rate vapr(25 * STEEMIT_1_PERCENT);
+        vote_author_promote_rate vapr(10 * STEEMIT_1_PERCENT);
         op.extensions.insert(vapr);
-        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bobprom_private_key, op));
         generate_block();
         {
-            auto vote = db->get<comment_vote_object, by_comment_voter>(std::make_tuple(db->get_comment("alice", string("alice-test")).id, db->get_account("bob").id));
+            auto vote = db->get<comment_vote_object, by_comment_voter>(std::make_tuple(db->get_comment("alice", string("alice-test")).id, db->get_account("bobprom").id));
             BOOST_CHECK_EQUAL(vote.author_promote_rate, vapr.rate);
         }
 
         BOOST_TEST_MESSAGE("--- Checking that calling without extensions don't affect value");
 
         op.extensions.clear();
-        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bob_private_key, op));
+        BOOST_CHECK_NO_THROW(push_tx_with_ops(tx, bobprom_private_key, op));
         generate_block();
         {
-            auto vote = db->get<comment_vote_object, by_comment_voter>(std::make_tuple(db->get_comment("alice", string("alice-test")).id, db->get_account("bob").id));
+            auto vote = db->get<comment_vote_object, by_comment_voter>(std::make_tuple(db->get_comment("alice", string("alice-test")).id, db->get_account("bobprom").id));
             BOOST_CHECK_EQUAL(vote.author_promote_rate, vapr.rate);
         }
 
         BOOST_TEST_MESSAGE("--- Starting rewards");
 
-        generate_blocks(db->get_comment("alice", string("alice-test")).cashout_time - STEEMIT_BLOCK_INTERVAL, false);
-
-        comment_fund total_comment_fund(*db);
-        comment_reward alice_comment_reward(*db, total_comment_fund, db->get_comment("alice", string("alice-test")));
+        discussion_helper dhelper(*db,      
+            [&](const golos::chain::database&, const account_name_type&, fc::optional<share_type>&) {},
+            [&](const golos::chain::database&, discussion&) {},
+            [&](const database&, const comment_object&, comment_api_object) {}
+);
+        {
+        auto dis = dhelper.get_discussion(db->get_comment("alice", string("alice-test")), 0, 0);
+BOOST_TEST_MESSAGE(dis.pending_curator_payout_gests_value.to_string());}
+        generate_blocks(db->get_comment("alice", string("alice-test")).cashout_time - 3*STEEMIT_BLOCK_INTERVAL, false);
+        {
+        auto dis = dhelper.get_discussion(db->get_comment("alice", string("alice-test")), 0, 0);
+BOOST_TEST_MESSAGE(dis.pending_curator_payout_gests_value.to_string());}
+        generate_block();
+        {
+        auto dis = dhelper.get_discussion(db->get_comment("alice", string("alice-test")), 0, 0);
+BOOST_TEST_MESSAGE(dis.pending_curator_payout_gests_value.to_string());}
+        generate_block();
+        {
+        auto dis = dhelper.get_discussion(db->get_comment("alice", string("alice-test")), 0, 0);
+BOOST_TEST_MESSAGE(dis.pending_curator_payout_gests_value.to_string());}
+        // comment_fund total_comment_fund(*db);
+        // comment_reward alice_comment_reward(*db, total_comment_fund, db->get_comment("alice", string("alice-test")));
 
         generate_block();
-
+        {
+        auto dis = dhelper.get_discussion(db->get_comment("alice", string("alice-test")), 0, 0);
+BOOST_TEST_MESSAGE(dis.curator_gests_payout_value.to_string());}
         BOOST_TEST_MESSAGE("--- Checking rewards");
 
-        auto& bob_account = db->get_account("bob");
-        auto cur_op = get_last_operations<curation_reward_operation>(1)[0];
-        BOOST_CHECK_EQUAL(cur_op.reward, alice_comment_reward.vote_payout(bob_account));
+        auto cur_op = get_last_operations<curation_reward_operation>(3)[0];
+        BOOST_TEST_MESSAGE(std::string(cur_op.curator));
+        BOOST_TEST_MESSAGE(cur_op.reward.to_string());
+
+        auto cur_op2 = get_last_operations<curation_reward_operation>(3)[1];
+        BOOST_TEST_MESSAGE(std::string(cur_op2.curator));
+        BOOST_TEST_MESSAGE(cur_op2.reward.to_string());
+
+        auto cur_op3 = get_last_operations<curation_reward_operation>(3)[2];
+        BOOST_TEST_MESSAGE(std::string(cur_op3.curator));
+        BOOST_TEST_MESSAGE(cur_op3.reward.to_string());
+        // BOOST_CHECK_EQUAL(cur_op.reward, alice_comment_reward.vote_payout(bob_account));
         auto author_op = get_last_operations<author_reward_operation>(1)[0];
-        BOOST_CHECK_EQUAL(author_op.sbd_payout, alice_comment_reward.sbd_payout());
-        BOOST_CHECK_EQUAL(author_op.vesting_payout, alice_comment_reward.vesting_payout());
+        BOOST_TEST_MESSAGE(author_op.vesting_payout.to_string());
+        // BOOST_CHECK_EQUAL(author_op.sbd_payout, alice_comment_reward.sbd_payout());
+        // BOOST_CHECK_EQUAL(author_op.vesting_payout, alice_comment_reward.vesting_payout());
 
         validate_database();
     } FC_LOG_AND_RETHROW() }

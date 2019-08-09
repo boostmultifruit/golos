@@ -173,7 +173,13 @@ namespace golos { namespace chain {
             auto weight = helper.calculate_weight(*itr);
 
             if (weight > 0 || full_list) {
-                comment_vote_info vote{&(*itr), weight};
+                uint64_t apw = 0;
+                if (weight > 0) {
+                    apw = (uint128_t(weight) * itr->author_promote_rate / STEEMIT_100_PERCENT).to_uint64();
+                }
+                author_promote_weight += apw;
+
+                comment_vote_info vote{&(*itr), weight, apw};
                 vote_list.emplace_back(std::move(vote));
             }
         }
@@ -183,6 +189,7 @@ namespace golos { namespace chain {
         votes_in_auction_window_weight = helper.votes_in_auction_window_weight;
         votes_after_auction_window_weight = total_vote_weight - votes_in_auction_window_weight - auction_window_weight;
 
+        // Sorting by weight including author promote weight
         std::sort(vote_list.begin(), vote_list.end(), [](auto& r, auto& l) {
             if (r.weight == l.weight) {
                 return r.vote->voter < l.vote->voter;
