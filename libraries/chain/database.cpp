@@ -2466,7 +2466,7 @@ namespace golos { namespace chain {
                         if (claim > 0) { // min_amt is non-zero satoshis
                             unclaimed_rewards -= claim;
                             actual_rewards += pay_curator(*itr->vote, claim, c.comment.author, to_string(c.comment.permlink));
-                        } else {
+                        } else if (promote == 0) {
                             break;
                         }
                     }
