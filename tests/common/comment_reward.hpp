@@ -237,10 +237,11 @@ namespace golos { namespace chain {
                 BOOST_REQUIRE(vote_payout_map_.find(itr->vote->voter) == vote_payout_map_.end());
                 auto weight = u256(itr->weight);
                 uint64_t claim = static_cast<uint64_t>(weight * vote_rewards_fund_ / total_weight);
-                if (db_.has_hardfork(STEEMIT_HARDFORK_0_22__1014)) {
-                    auto promote_reward = claim * itr->vote->author_promote_rate / STEEMIT_100_PERCENT;
-                    claim -= promote_reward;
-                }
+
+                auto promote_reward = claim * itr->vote->author_promote_rate / STEEMIT_100_PERCENT;
+                claim -= promote_reward;
+                total_vote_rewards_ += promote_reward; // do not unclaim (TODO dirty)
+                comment_rewards_ += promote_reward; // to author
 
                 // to_curators case
                 if (comment_.auction_window_reward_destination == protocol::to_curators &&
