@@ -1272,7 +1272,7 @@ namespace golos { namespace chain {
                 optional<signed_block> head_block = fetch_block_by_id(head_id);
                 GOLOS_ASSERT(head_block.valid(), pop_empty_chain, "there are no blocks to pop");
 
-                _fork_db.pop_block();
+                // _fork_db.pop_block();
                 undo();
 
                 _popped_tx.insert(_popped_tx.begin(), head_block->transactions.begin(), head_block->transactions.end());
@@ -1528,7 +1528,8 @@ namespace golos { namespace chain {
                     set_revision(gpo.head_block_number);
                 }
 
-                if (gpo.transit_block_num == gpo.last_irreversible_block_num) {
+                if (gpo.transit_block_num == b.block_num() ||
+                    gpo.transit_block_num == gpo.last_irreversible_block_num) {
                     STEEMIT_TRY_NOTIFY(transit_to_cyberway, b.block_num(), skip);
                 }
             }

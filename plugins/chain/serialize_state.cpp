@@ -256,10 +256,11 @@ void plugin::state_serializer::serialize(golos::chain::database &db_, const bfs:
             bfs::create_directory(dir);
         }
 
-        ofstream_sha256 out(output);
-        auto start = fc::time_point::now();
         wlog("---------------------------------------------------------------------------");
         wlog("Serializing state to ${dst}", ("dst",output.string()));
+
+        ofstream_sha256 out(output);
+        auto start = fc::time_point::now();
         auto hdr = state_header{};
         hdr.version = 3;
 
