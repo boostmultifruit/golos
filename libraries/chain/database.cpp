@@ -1506,13 +1506,16 @@ namespace golos { namespace chain {
                     }
                 }
 
+                modify(gpo, [&](auto& o) {
+                    i = 0;
+                    for (auto owner: transit_witnesses) {
+                        o.transit_witnesses[i++] = owner;
+                    }
+                });
+
                 if (transit_witnesses.size() >= STEEMIT_TRANSIT_REQUIRED_WITNESSES) {
                     modify(gpo, [&](auto& o) {
-                        i = 0;
                         o.transit_block_num = b.block_num();
-                        for (auto owner: transit_witnesses) {
-                            o.transit_witnesses[i++] = owner;
-                        }
                     });
                 } else {
                     return;
@@ -2474,7 +2477,7 @@ namespace golos { namespace chain {
                         // pay needed claim + rest unclaimed tokens (close to zero value) to curator with greates weight
                         // BTW: it has to be unclaimed_rewards.value not heaviest_vote_after_auw_weight + unclaimed_rewards.value, coz
                         //      unclaimed_rewards already contains this.
-                        actual_rewards = pay_curator(*heaviest_itr->vote, unclaimed_rewards.value, c.comment.author, to_string(c.comment.permlink));
+                        actual_rewards += pay_curator(*heaviest_itr->vote, unclaimed_rewards.value, c.comment.author, to_string(c.comment.permlink));
                         unclaimed_rewards = 0;
                     }
                 }
