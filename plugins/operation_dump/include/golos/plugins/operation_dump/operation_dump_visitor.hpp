@@ -100,6 +100,7 @@ public:
         fc::raw::pack(b, op.permlink);
         fc::raw::pack(b, op.title);
         fc::raw::pack(b, op.body);
+        fc::raw::pack(b, bool(op.json_metadata.size()) && fc::is_utf8(op.json_metadata));
         fc::raw::pack(b, golos::plugins::tags::get_metadata(op.json_metadata, TAGS_NUMBER, TAG_MAX_LENGTH));
         fc::raw::pack(b, _block.timestamp);
     }
