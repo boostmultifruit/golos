@@ -41,7 +41,8 @@ struct post_operation_clarifier {
         auto vote_itr = vote_idx.find(std::make_tuple(comment.id, voter.id));
 
         add_clarification(_plugin.vote_rshares, vote_itr->rshares);
-        add_clarification(_plugin.vote_effective_vs, voter->effective_vesting_shares());
+        add_clarification(_plugin.vote_effective_vs, voter.effective_vesting_shares());
+        add_clarification(_plugin.vote_total_vs, _db.get_dynamic_global_properties().total_vesting_shares);
     }
 
     result_type operator()(const delete_comment_operation& op) const {
@@ -70,6 +71,7 @@ public:
         virtual_ops.erase(block_num);
         _plugin.vote_rshares.erase(block_num);
         _plugin.vote_effective_vs.erase(block_num);
+        _plugin.vote_total_vs.erase(block_num);
         _plugin.not_deleted_comments.erase(block_num);
         _plugin.transfer_golos_amounts.erase(block_num);
     }

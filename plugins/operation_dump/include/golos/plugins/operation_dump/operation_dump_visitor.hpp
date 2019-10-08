@@ -165,6 +165,7 @@ public:
         fc::raw::pack(b, op);
         fc::raw::pack(b, pop_clarification(_plugin.vote_rshares));
         fc::raw::pack(b, pop_clarification(_plugin.vote_effective_vs));
+        fc::raw::pack(b, pop_clarification(_plugin.vote_total_vs));
         fc::raw::pack(b, _block.timestamp);
     }
 
