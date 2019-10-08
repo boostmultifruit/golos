@@ -36,10 +36,12 @@ struct post_operation_clarifier {
 
     result_type operator()(const vote_operation& op) const {
         const auto& comment = _db.get_comment(op.author, op.permlink);
+        const auto& voter = _db.get_account(op.voter);
         const auto& vote_idx = _db.get_index<comment_vote_index, by_comment_voter>();
-        auto vote_itr = vote_idx.find(std::make_tuple(comment.id, _db.get_account(op.voter).id));
+        auto vote_itr = vote_idx.find(std::make_tuple(comment.id, voter.id));
 
         add_clarification(_plugin.vote_rshares, vote_itr->rshares);
+        add_clarification(_plugin.vote_effective_vs, voter->effective_vesting_shares());
     }
 
     result_type operator()(const delete_comment_operation& op) const {
@@ -67,6 +69,7 @@ public:
     void erase_block(uint32_t block_num) {
         virtual_ops.erase(block_num);
         _plugin.vote_rshares.erase(block_num);
+        _plugin.vote_effective_vs.erase(block_num);
         _plugin.not_deleted_comments.erase(block_num);
         _plugin.transfer_golos_amounts.erase(block_num);
     }
